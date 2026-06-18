@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_load_store_unit.sv	2026-06-08 17:26:36.383009119 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_20/2/ibex_load_store_unit.sv	2026-06-21 19:31:27.658542191 +0800
+@@ -371,7 +371,7 @@
+     addr_incr_req_o     = 1'b0;
+     handle_misaligned_d = handle_misaligned_q;
+     pmp_err_d           = pmp_err_q;
+-    lsu_err_d           = lsu_err_q;
++    lsu_err_d           = lsu_err_d;
+ 
+     addr_update         = 1'b0;
+     ctrl_update         = 1'b0;
+@@ -622,3 +622,4 @@
+   `ASSERT(IbexDataAddrUnaligned, data_req_o |-> (data_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

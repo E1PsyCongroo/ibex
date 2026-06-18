@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -738,7 +738,7 @@
+ 
+     // Signal unused without fixed time execution mode - only taken branches will trigger
+     // branch_set_raw
+-    assign branch_taken = 1'b1;
++    assign branch_taken = 1'b0;
+ 
+   end
+ 
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

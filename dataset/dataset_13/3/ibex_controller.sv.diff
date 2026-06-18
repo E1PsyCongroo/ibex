@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -189,7 +189,7 @@
+   assign store_err_d = store_err_i;
+ 
+   // Decoder doesn't take instr_valid into account, factor it in here.
+-  assign ecall_insn      = ecall_insn_i      & instr_valid_i;
++  assign ecall_insn      = ecall_insn_i      & instr_exec_i      & instr_valid_i;
+   assign mret_insn       = mret_insn_i       & instr_valid_i;
+   assign dret_insn       = dret_insn_i       & instr_valid_i;
+   assign wfi_insn        = wfi_insn_i        & instr_valid_i;
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

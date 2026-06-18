@@ -1,0 +1,3 @@
+[submodule "dv/verilator/simple_system_sbfl/sbfl"]
+	path = dv/verilator/simple_system_sbfl/sbfl
+	url = git@github.com:E1PsyCongroo/cpusbfl.git

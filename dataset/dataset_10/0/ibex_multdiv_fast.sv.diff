@@ -1,0 +1,16 @@
+--- a/rtl/ibex_multdiv_fast.sv
++++ a/rtl/ibex_multdiv_fast.sv
+@@ -454,7 +454,7 @@
+         // quotient
+         op_quotient_d   = '0;
+         // A abs value
+-        op_numerator_d  = div_sign_a ? alu_adder_i : op_a_i;
++        op_numerator_d  = div_sign_a ? alu_adder_i : op_b_i;
+         md_state_d      = MD_ABS_B;
+         div_counter_d   = 5'd31;
+         // ABS(A) = 0 - A
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

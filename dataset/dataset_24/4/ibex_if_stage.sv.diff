@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_if_stage.sv	2026-06-08 17:26:36.382942911 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_24/4/ibex_if_stage.sv	2026-06-21 20:26:55.827512141 +0800
+@@ -228,7 +228,7 @@
+   end
+ 
+   // tell CS register file to initialize mtvec on boot
+-  assign csr_mtvec_init_o = (pc_mux_i == PC_BOOT) & pc_set_i;
++  assign csr_mtvec_init_o = (pc_mux_i == PC_BOOT) | pc_set_i;
+ 
+   // SEC_CM: BUS.INTEGRITY
+   if (MemECC) begin : g_mem_ecc
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

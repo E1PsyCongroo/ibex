@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_if_stage.sv	2026-06-08 17:26:36.382942911 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_23/4/ibex_if_stage.sv	2026-06-21 20:13:38.628027109 +0800
+@@ -403,7 +403,7 @@
+   assign if_instr_err = if_instr_bus_err | if_instr_pmp_err;
+ 
+   // Capture the second half of the address for errors on the second part of an instruction
+-  assign if_instr_err_plus2 = ((if_instr_addr[1] & ~instr_is_compressed & pmp_err_if_plus2_i) |
++  assign if_instr_err_plus2 = ((if_instr_addr[1] & ~instr_is_compressed & pmp_err_if_i) |
+                                fetch_err_plus2) & ~pmp_err_if_i;
+ 
+   // compressed instruction decoding, or more precisely compressed instruction
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_fetch_fifo.sv	2026-06-08 17:26:36.382641157 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_24/1/ibex_fetch_fifo.sv	2026-06-21 20:21:58.389039464 +0800
+@@ -136,7 +136,7 @@
+   /////////////////////////
+ 
+   // Update the address on branches and every time an instruction is driven
+-  assign instr_addr_en = clear_i | (out_ready_i & out_valid_o);
++  assign instr_addr_en = clear_i | (out_ready_i | out_valid_o);
+ 
+   // Increment the address by two every time a compressed instruction is popped
+   assign addr_incr_two = instr_addr_q[1] ? unaligned_is_compressed :
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

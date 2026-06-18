@@ -1,0 +1,77 @@
+CAPI=2:
+# Copyright lowRISC contributors.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+name: "lowrisc:tool:ibex_sbfl_setup:0.1"
+description: "Check that Spike is installed properly for sbfl"
+
+filesets:
+  files_ibex_sbfl_setup_check:
+    files:
+      - util/ibex_sbfl_setup_check.sh : { copyto: util/ibex_sbfl_setup_check.sh }
+  files_ibex_sbfl_setup_sources:
+    files:
+      - sbfl/Makefile: { copyto: sbfl/Makefile }
+      - sbfl/Makefile.toml: { copyto: sbfl/Makefile.toml }
+      - sbfl/Cargo.toml: { copyto: sbfl/Cargo.toml }
+      - sbfl/Cargo.lock: { copyto: sbfl/Cargo.lock }
+      - sbfl/src/bugloc.rs: { copyto: sbfl/src/bugloc.rs }
+      - sbfl/src/coverage.rs: { copyto: sbfl/src/coverage.rs }
+      - sbfl/src/fuzzer.rs: { copyto: sbfl/src/fuzzer.rs }
+      - sbfl/src/harness.rs: { copyto: sbfl/src/harness.rs }
+      - sbfl/src/lib.rs: { copyto: sbfl/src/lib.rs }
+      - sbfl/src/monitor.rs: { copyto: sbfl/src/monitor.rs }
+      - sbfl/src/similarity.rs: { copyto: sbfl/src/similarity.rs }
+      - sbfl/src/state_tracker.rs: { copyto: sbfl/src/state_tracker.rs }
+      - sbfl/src/elf.rs: { copyto: sbfl/src/elf.rs }
+      - sbfl/src/feedback/mod.rs: { copyto: sbfl/src/feedback/mod.rs }
+      - sbfl/src/feedback/passed_feedback.rs: { copyto: sbfl/src/feedback/passed_feedback.rs }
+      - sbfl/src/feedback/coverage_feedback.rs: { copyto: sbfl/src/feedback/coverage_feedback.rs }
+      - sbfl/src/feedback/coverages_feedback.rs: { copyto: sbfl/src/feedback/coverages_feedback.rs }
+      - sbfl/src/feedback/statetracker_feedback.rs: { copyto: sbfl/src/feedback/statetracker_feedback.rs }
+      - sbfl/src/feedback/statetrackers_feedback.rs: { copyto: sbfl/src/feedback/statetrackers_feedback.rs }
+      - sbfl/src/mutator/mod.rs: { copyto: sbfl/src/mutator/mod.rs }
+      - sbfl/src/mutator/lastinst_mutator.rs: { copyto: sbfl/src/mutator/lastinst_mutator.rs }
+      - sbfl/src/observer/mod.rs: { copyto: sbfl/src/observer/mod.rs }
+      - sbfl/src/observer/passed_observer.rs: { copyto: sbfl/src/observer/passed_observer.rs }
+      - sbfl/src/observer/coverage_observer.rs: { copyto: sbfl/src/observer/coverage_observer.rs }
+      - sbfl/src/observer/coverages_observer.rs: { copyto: sbfl/src/observer/coverages_observer.rs }
+      - sbfl/src/observer/statetracker_observer.rs: { copyto: sbfl/src/observer/statetracker_observer.rs }
+      - sbfl/src/observer/statetrackers_observer.rs: { copyto: sbfl/src/observer/statetrackers_observer.rs }
+      - sbfl/src/reduce/mod.rs: { copyto: sbfl/src/reduce/mod.rs }
+      - sbfl/src/reduce/inst.rs: { copyto: sbfl/src/reduce/inst.rs }
+      - sbfl/src/reduce/trim.rs: { copyto: sbfl/src/reduce/trim.rs }
+      - sbfl/src/reduce/nop.rs: { copyto: sbfl/src/reduce/nop.rs }
+      - sbfl/src/reduce/strip_suffix.rs: { copyto: sbfl/src/reduce/strip_suffix.rs }
+      - sbfl/src/reduce/strip_prefix.rs: { copyto: sbfl/src/reduce/strip_prefix.rs }
+      - sbfl/src/spectrum/mod.rs: { copyto: sbfl/src/spectrum/mod.rs }
+      - sbfl/src/spectrum/matrix.rs: { copyto: sbfl/src/spectrum/matrix.rs }
+      - sbfl/src/block/mod.rs: { copyto: sbfl/src/block/mod.rs }
+      - sbfl/src/block/dfb.rs: { copyto: sbfl/src/block/dfb.rs }
+      - sbfl/src/block/mgr.rs: { copyto: sbfl/src/block/mgr.rs }
+
+scripts:
+  ibex_sbfl_setup_check:
+    filesets:
+      - files_ibex_sbfl_setup_check
+    cmd:
+      - sh
+      - util/ibex_sbfl_setup_check.sh
+  ibex_sbfl_setup:
+    filesets:
+      - files_ibex_sbfl_setup_sources
+    cmd:
+      - make
+      - -C
+      - sbfl
+      - build
+
+targets:
+  default:
+    filesets:
+      - files_ibex_sbfl_setup_check
+      - files_ibex_sbfl_setup_sources
+    hooks:
+      pre_build:
+        - ibex_sbfl_setup_check
+        - ibex_sbfl_setup

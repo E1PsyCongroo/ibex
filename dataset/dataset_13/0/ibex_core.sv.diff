@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -972,7 +972,7 @@
+   assign alert_minor_o = icache_ecc_error;
+ 
+   // Major internal alert - core is unrecoverable
+-  assign alert_major_internal_o = rf_ecc_err_comb | pc_mismatch_alert | csr_shadow_err;
++  assign alert_major_internal_o = rf_ecc_err_comb | pc_mismatch_alert & csr_shadow_err;
+   // Major bus alert
+   assign alert_major_bus_o = lsu_load_resp_intg_err | lsu_store_resp_intg_err | instr_intg_err;
+ 
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_controller.sv	2026-06-08 17:26:36.382037933 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_23/3/ibex_controller.sv	2026-06-21 20:13:29.893812644 +0800
+@@ -215,7 +215,7 @@
+                      (ctrl_fsm_cs != FLUSH);
+ 
+   // LSU exception requests
+-  assign exc_req_lsu = store_err_i | load_err_i;
++  assign exc_req_lsu = store_err_i | load_err_q;
+ 
+   assign id_exception_o = exc_req_d & ~wb_exception_o;
+ 
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

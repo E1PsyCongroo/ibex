@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -124,7 +124,7 @@
+       end
+     end else begin
+       // aligned case
+-      out_rdata_o     = rdata;
++      out_rdata_o     = rdata_d;
+       out_err_o       = err;
+       out_err_plus2_o = 1'b0;
+       out_valid_o     = valid;
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

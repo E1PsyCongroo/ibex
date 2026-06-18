@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ b/rtl/ibex_decoder.sv
+@@ -364,7 +364,7 @@
+ 
+           3'b001: begin
+             unique case (instr[31:27])
+-              5'b0_0000: illegal_insn = (instr[26:25] == 2'b00) ? 1'b0 : 1'b1;        // slli
++              5'b0_0000: illegal_insn = (instr[26:25] == 2'b01) ? 1'b0 : 1'b1;        // slli
+               5'b0_0100: begin                                                        // sloi
+                 illegal_insn = (RV32B == RV32BOTEarlGrey || RV32B == RV32BFull) ? 1'b0 : 1'b1;
+               end
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

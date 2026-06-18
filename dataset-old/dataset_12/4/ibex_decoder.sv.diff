@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_decoder.sv	2026-06-18 17:27:48.326981938 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_12/4/ibex_decoder.sv	2026-06-18 17:38:04.362340647 +0800
+@@ -427,7 +427,7 @@
+                   if (RV32B == RV32BOTEarlGrey || RV32B == RV32BFull) begin
+                     illegal_insn = 1'b0;                                              // gorci
+                   end else if (instr[24:20] == 5'b00111) begin
+-                    illegal_insn = (RV32B == RV32BBalanced) ? 1'b0 : 1'b1;            // orc.b
++                    illegal_insn = (RV32B == RV32BBalanced) ? 1'b1 : 1'b1;            // orc.b
+                   end else begin
+                     illegal_insn = 1'b1;
+                   end
+@@ -1211,3 +1211,4 @@
+       !$isunknown(instr[14:12]))
+ endmodule // controller
+ 
++

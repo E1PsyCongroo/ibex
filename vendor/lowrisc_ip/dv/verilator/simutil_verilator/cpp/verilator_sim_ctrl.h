@@ -29,6 +29,8 @@ class VerilatorSimCtrl {
    */
   static VerilatorSimCtrl &GetInstance();
 
+  void Reset();
+
   VerilatorSimCtrl(VerilatorSimCtrl const &) = delete;
   void operator=(VerilatorSimCtrl const &) = delete;
 
@@ -148,6 +150,7 @@ class VerilatorSimCtrl {
    * Use GetInstance() instead.
    */
   VerilatorSimCtrl();
+
 
   /**
    * Register the signal handler

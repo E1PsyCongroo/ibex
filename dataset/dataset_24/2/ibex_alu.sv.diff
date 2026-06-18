@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_alu.sv	2026-06-14 21:37:23.090014830 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_24/2/ibex_alu.sv	2026-06-21 20:28:03.668876005 +0800
+@@ -104,7 +104,7 @@
+   // actual adder
+   assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
+ 
+-  assign adder_result       = adder_result_ext_o[32:1];
++  assign adder_result       = adder_result_ext_o[21:1];
+ 
+   assign adder_result_o     = adder_result;
+ 
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

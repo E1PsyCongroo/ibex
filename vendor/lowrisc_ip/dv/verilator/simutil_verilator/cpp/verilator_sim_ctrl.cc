@@ -5,10 +5,12 @@
 #include "verilator_sim_ctrl.h"
 
 #include <getopt.h>
-#include <iostream>
 #include <signal.h>
 #include <sys/stat.h>
 #include <verilated.h>
+
+#include <cstddef>
+#include <iostream>
 
 // This is defined by Verilator and passed through the command line
 #ifndef VM_TRACE
@@ -114,6 +116,7 @@ bool VerilatorSimCtrl::ParseCommandArgs(int argc, char **argv, bool &exit_app) {
       {"help", no_argument, nullptr, 'h'},
       {nullptr, no_argument, nullptr, 0}};
 
+  optind = 0;
   while (1) {
     int c = getopt_long(argc, argv, "-:c:th", long_options, nullptr);
     if (c == -1) {
@@ -244,6 +247,20 @@ VerilatorSimCtrl::VerilatorSimCtrl()
       simulation_success_(true),
       tracer_(VerilatedTracer()),
       term_after_cycles_(0) {
+}
+
+void VerilatorSimCtrl::Reset() {
+  top_ = nullptr;
+  time_ = 0;
+  tracing_enabled_ = false;
+  tracing_enabled_changed_ = false;
+  tracing_ever_enabled_ = false;
+  initial_reset_delay_cycles_ = 2;
+  reset_duration_cycles_ = 2;
+  request_stop_ = false;
+  simulation_success_ = true;
+  term_after_cycles_ = 0;
+  extension_array_.clear();
 }
 
 void VerilatorSimCtrl::RegisterSignalHandler() {

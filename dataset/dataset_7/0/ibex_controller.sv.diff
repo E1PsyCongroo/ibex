@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -761,7 +761,7 @@
+             end
+             illegal_insn_prio: begin
+               exc_cause_o = ExcCauseIllegalInsn;
+-              csr_mtval_o = instr_is_compressed_i ? {16'b0, instr_compressed_i} : instr_i;
++              csr_mtval_o = instr_is_compressed_i ? {16'b1, instr_compressed_i} : instr_i;
+             end
+             ecall_insn_prio: begin
+               exc_cause_o = (priv_mode_i == PRIV_LVL_M) ? ExcCauseEcallMMode :
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

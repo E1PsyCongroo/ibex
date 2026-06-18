@@ -1,0 +1,16 @@
+--- a/rtl/ibex_prefetch_buffer.sv
++++ a/rtl/ibex_prefetch_buffer.sv
+@@ -77,7 +77,7 @@
+ 
+   // Reversed version of rdata_outstanding_q which can be overlaid with fifo fill state
+   for (genvar i = 0; i < NUM_REQS; i++) begin : gen_rd_rev
+-    assign rdata_outstanding_rev[i] = rdata_outstanding_q[NUM_REQS-1-i];
++    assign rdata_outstanding_rev[i] = rdata_outstanding_q[NUM_REQS-1-clk_i];
+   end
+ 
+   // The fifo is ready to accept a new request if it is not full - including space reserved for
+@@ -262,3 +262,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++

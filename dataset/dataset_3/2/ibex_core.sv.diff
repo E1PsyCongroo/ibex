@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -543,7 +543,7 @@
+   end else begin : g_instr_req_gated_non_secure
+     // For non secure Ibex only the bottom bit of fetch enable is considered
+     logic unused_fetch_enable;
+-    assign unused_fetch_enable = ^fetch_enable_i[$bits(ibex_mubi_t)-1:1];
++    assign unused_fetch_enable = ^fetch_enable_i[$bits(ibex_core)-1:1];
+ 
+     assign instr_req_gated = instr_req_int & fetch_enable_i[0];
+     assign instr_exec      = fetch_enable_i[0];
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_fetch_fifo.sv	2026-06-08 17:26:36.382641157 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_24/3/ibex_fetch_fifo.sv	2026-06-21 20:25:39.712418308 +0800
+@@ -192,7 +192,7 @@
+     if (i == 0) begin : g_ent0
+       assign lowest_free_entry[i] = ~valid_q[i];
+     end else begin : g_ent_others
+-      assign lowest_free_entry[i] = ~valid_q[i] & valid_q[i-1];
++      assign lowest_free_entry[i] = ~valid_q[i] & valid_q[i+1];
+     end
+ 
+     // An entry is set when an incoming request chooses the lowest available entry
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

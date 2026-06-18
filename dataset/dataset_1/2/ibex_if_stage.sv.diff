@@ -1,0 +1,16 @@
+--- a/rtl/ibex_if_stage.sv
++++ a/rtl/ibex_if_stage.sv
+@@ -259,7 +259,7 @@
+   // There are two possible "branch please" signals that are computed in the IF stage: branch_req
+   // and nt_branch_mispredict_i. These should be mutually exclusive (see the NoMispredBranch
+   // assertion), so we can just OR the signals together.
+-  assign prefetch_branch = branch_req | nt_branch_mispredict_i;
++  assign prefetch_branch = branch_req & nt_branch_mispredict_i;
+   assign prefetch_addr   = branch_req ? {fetch_addr_n[31:1], 1'b0} : nt_branch_addr_i;
+ 
+   // The fetch_valid signal that comes out of the icache or prefetch buffer should be squashed if we
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

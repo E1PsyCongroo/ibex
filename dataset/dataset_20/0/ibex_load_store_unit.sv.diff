@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_load_store_unit.sv	2026-06-08 17:26:36.383009119 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_20/0/ibex_load_store_unit.sv	2026-06-21 19:31:39.289747663 +0800
+@@ -260,7 +260,7 @@
+ 
+       2'b10: begin
+         if (!data_sign_ext_q) begin
+-          rdata_h_ext = {16'h0000, data_rdata_i[31:16]};
++          rdata_h_ext = {16'h0000, data_rdata_i[31:11]};
+         end else begin
+           rdata_h_ext = {{16{data_rdata_i[31]}}, data_rdata_i[31:16]};
+         end
+@@ -622,3 +622,4 @@
+   `ASSERT(IbexDataAddrUnaligned, data_req_o |-> (data_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

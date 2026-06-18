@@ -1,0 +1,17 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_prefetch_buffer.sv	2026-06-08 17:26:36.383362336 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_18/4/ibex_prefetch_buffer.sv	2026-06-21 19:07:17.397802545 +0800
+@@ -215,7 +215,8 @@
+     // Entries > 0 consider the FIFO fill state to calculate their next state (by checking
+     // whether the previous entry is valid)
+ 
+-      assign rdata_outstanding_n[i] = (valid_req & instr_gnt_i &
++      assign rdata_outstanding_n[i] = (valid_req & instr_err_i &
++                                       rdata_outstanding_q[i-1] &
+                                        rdata_outstanding_q[i-1]) |
+                                       rdata_outstanding_q[i];
+       assign branch_discard_n[i]    = (valid_req & instr_gnt_i & discard_req_d &
+@@ -262,3 +263,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++

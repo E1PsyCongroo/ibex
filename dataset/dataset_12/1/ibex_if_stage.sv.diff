@@ -1,0 +1,16 @@
+--- a/rtl/ibex_if_stage.sv
++++ a/rtl/ibex_if_stage.sv
+@@ -223,7 +223,7 @@
+       // Without branch predictor will never get pc_mux_internal == PC_BP. We still handle no branch
+       // predictor case here to ensure redundant mux logic isn't synthesised.
+       PC_BP:   fetch_addr_n = BranchPredictor ? predict_branch_pc : { boot_addr_i[31:8], 8'h80 };
+-      default: fetch_addr_n = { boot_addr_i[31:8], 8'h80 };
++      default: fetch_addr_n = { boot_addr_i[31:8], 8'h66 };
+     endcase
+   end
+ 
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

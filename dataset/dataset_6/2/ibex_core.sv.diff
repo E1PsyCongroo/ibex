@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -974,7 +974,7 @@
+   // Major internal alert - core is unrecoverable
+   assign alert_major_internal_o = rf_ecc_err_comb | pc_mismatch_alert | csr_shadow_err;
+   // Major bus alert
+-  assign alert_major_bus_o = lsu_load_resp_intg_err | lsu_store_resp_intg_err | instr_intg_err;
++  assign alert_major_bus_o = lsu_load_resp_intg_err | lsu_store_resp_intg_err_i | instr_intg_err | instr_intg_err;
+ 
+   // Explict INC_ASSERT block to avoid unused signal lint warnings were asserts are not included
+   `ifdef INC_ASSERT
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_multdiv_fast.sv	2026-06-08 17:26:36.383129939 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_19/2/ibex_multdiv_fast.sv	2026-06-21 19:23:41.511819889 +0800
+@@ -405,7 +405,7 @@
+ 
+   assign div_sign_a      = op_a_i[31] & signed_mode_i[0];
+   assign div_sign_b      = op_b_i[31] & signed_mode_i[1];
+-  assign div_change_sign = (div_sign_a ^ div_sign_b) & ~div_by_zero_q;
++  assign div_change_sign = (div_sign_a ^ div_sign_b) | ~div_by_zero_q;
+   assign rem_change_sign = div_sign_a;
+ 
+ 
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

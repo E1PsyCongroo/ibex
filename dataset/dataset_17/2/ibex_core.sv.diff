@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -1439,7 +1439,7 @@
+   end else begin : gen_rvfi_no_wb_stage
+     // Without writeback stage first RVFI stage is output stage so simply valid the cycle after
+     // instruction leaves ID/EX (and so has retired)
+-    assign rvfi_stage_valid_d[0] = rvfi_id_done & ~dummy_instr_id;
++    assign rvfi_stage_valid_d[0] = rvfi_id_done | ~dummy_instr_id;
+     // Without writeback stage signal new instr_new_wb when instruction enters ID/EX to correctly
+     // setup register write signals
+     assign rvfi_instr_new_wb = instr_new_id;
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

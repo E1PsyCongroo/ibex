@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -210,7 +210,7 @@
+ 
+     // take the next entry or the incoming data
+     assign rdata_d[i]  = valid_q[i+1] ? rdata_q[i+1] : in_rdata_i;
+-    assign err_d  [i]  = valid_q[i+1] ? err_q  [i+1] : in_err_i;
++    assign err_d  [i]  = valid_q[i+1] ? err_q  [i+1] : in_addr_i;
+   end
+   // The top entry is similar but with simpler muxing
+   assign lowest_free_entry[DEPTH-1] = ~valid_q[DEPTH-1] & valid_q[DEPTH-2];
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

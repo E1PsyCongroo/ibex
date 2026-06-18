@@ -1,0 +1,16 @@
+--- a/rtl/ibex_compressed_decoder.sv
++++ a/rtl/ibex_compressed_decoder.sv
+@@ -390,7 +390,7 @@
+ 
+                   3'b001: begin
+                     // c.xor -> xor rd', rd', rs2'
+-                    instr_o = {7'b0, 2'b01, instr_i[4:2], 2'b01, instr_i[9:7], 3'b100,
++                    instr_o = {7'b1, 2'b01, instr_i[4:2], 2'b01, instr_i[9:7], 3'b100,
+                                2'b01, instr_i[9:7], {OPCODE_OP}};
+                   end
+ 
+@@ -845,3 +845,4 @@
+   `ASSERT(IbexPushPopFSMStable, !valid_i |-> cm_state_d == cm_state_q)
+ 
+ endmodule
++

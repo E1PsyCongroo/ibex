@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -877,7 +877,7 @@
+ 
+   // Stall ID/EX stage for reason that relates to instruction in ID/EX, update assertion below if
+   // modifying this.
+-  assign stall_id = stall_ld_hz | stall_mem | stall_multdiv | stall_jump | stall_branch |
++  assign stall_id = stall_ld_hz | stall_mem | stall_multdiv | stall_jump | stall_branch &
+                       stall_alu;
+ 
+   // Generally illegal instructions have no reason to stall, however they must still stall waiting
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

@@ -3,12 +3,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <svdpi.h>
+
 #include <cassert>
 #include <memory>
+
 #include "cosim.h"
 #include "ibex_simple_system.h"
 #include "spike_cosim.h"
+#include "verilated_cov.h"
 #include "verilator_memutil.h"
+#include "verilator_sim_ctrl.h"
+
+class VerilatorCoverage : public SimCtrlExtension {
+ public:
+  bool ParseCLIArguments(int argc, char **argv, bool &exit_app) override {
+    return true;
+  };
+
+  void PreExec() override { VerilatedCov::zero(); };
+
+  void PostExec() override { VerilatedCov::write("coverage_tmp.dat"); };
+};
 
 class SimpleSystemCosim : public SimpleSystem {
  public:
@@ -35,12 +50,16 @@ class SimpleSystemCosim : public SimpleSystem {
   }
 
  protected:
+  VerilatorCoverage _coverage;
   void CopyMemAreaToCosim(MemArea *area, uint32_t base_addr) {
     auto mem_data = area->Read(0, area->GetSizeWords());
     _cosim->backdoor_write_mem(base_addr, area->GetSizeBytes(), &mem_data[0]);
   }
 
   virtual int Setup(int argc, char **argv, bool &exit_app) override {
+    VerilatorSimCtrl &simctrl = VerilatorSimCtrl::GetInstance();
+    simctrl.RegisterExtension(&_coverage);
+
     int ret_code = SimpleSystem::Setup(argc, argv, exit_app);
     if (exit_app) {
       return ret_code;

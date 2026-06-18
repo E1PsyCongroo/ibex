@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -639,7 +639,7 @@
+ 
+   assign multdiv_en_dec   = mult_en_dec | div_en_dec;
+ 
+-  assign lsu_req         = instr_executing ? data_req_allowed & lsu_req_dec  : 1'b0;
++  assign lsu_req         = instr_executing ? data_req_allowed | lsu_req_dec  : 1'b0;
+   assign mult_en_id      = instr_executing ? mult_en_dec                     : 1'b0;
+   assign div_en_id       = instr_executing ? div_en_dec                      : 1'b0;
+ 
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

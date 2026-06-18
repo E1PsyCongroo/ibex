@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -324,7 +324,7 @@
+ 
+         // load size
+         unique case (instr[13:12])
+-          2'b00: data_type_o = 2'b10; // lb(u)
++          2'b00: data_type_o = 2'b01; // lb(u)
+           2'b01: data_type_o = 2'b01; // lh(u)
+           2'b10: begin
+             data_type_o = 2'b00;      // lw
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

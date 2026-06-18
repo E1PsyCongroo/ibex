@@ -1,0 +1,16 @@
+--- /home/focused_xy/demo/versys/cpufuzz/ibex/rtl/ibex_prefetch_buffer.sv	2026-06-08 17:26:36.383362336 +0800
++++ /home/focused_xy/demo/versys/cpufuzz/ibex/dataset/dataset_21/4/ibex_prefetch_buffer.sv	2026-06-21 19:39:21.740996501 +0800
+@@ -234,7 +234,7 @@
+   // Push a new entry to the FIFO once complete (and not cancelled by a branch)
+   assign fifo_valid = instr_rvalid_i & ~branch_discard_q[0];
+ 
+-  assign fifo_addr = addr_i;
++  assign fifo_addr = addr_o;
+ 
+   ///////////////
+   // Registers //
+@@ -262,3 +262,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++
