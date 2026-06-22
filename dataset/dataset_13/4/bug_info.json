@@ -1,0 +1,7 @@
+{
+  "module_name": "ibex_controller",
+  "scope_name": "TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core.id_stage_i.controller_i",
+  "modify_line": [
+    364
+  ]
+}

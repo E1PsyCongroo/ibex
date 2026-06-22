@@ -140,7 +140,7 @@ run_one_case() {
     fi
 
     if [[ ! -x "${SBFL_BIN}" ]]; then
-        echo "[ERROR] SBFL binary not found or not executable: ${SBFL_BIN}" | tee -a "${logdir}/status.txt"
+        echo "[ERROR] SBFL binary not found or not executable: ${SBFL_BIN}, status=1" | tee -a "${logdir}/status.txt"
         cleanup
         return 1
     fi
@@ -152,7 +152,7 @@ run_one_case() {
         -f \
         -r \
         -c "verilator.branch,verilator.line" \
-        --max-iters 100 \
+        --max-iters 50 \
         --top-pass 100 \
         --top-sus 50 \
         --corpus-input examples/sw/benchmarks/coremark/coremark.elf \
