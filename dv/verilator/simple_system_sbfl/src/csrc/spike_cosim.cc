@@ -15,6 +15,7 @@
 #include "riscv/mmu.h"
 #include "riscv/processor.h"
 #include "riscv/simif.h"
+#include "state_tracker.h"
 
 // For a short time, we're going to support building against version
 // ibex-cosim-v0.2 (20a886c) and also ibex-cosim-v0.3 (9af9730). Unfortunately,
@@ -281,6 +282,8 @@ bool SpikeCosim::step(uint32_t write_reg, uint32_t write_reg_data, uint32_t pc,
 
       // This is all the checking possible when consider a
       // synchronously-trapping instruction that never retired.
+      stats.update_state(State::from_spike_state(processor->get_state()));
+      insn_cnt++;
       return true;
     }
   }
@@ -316,6 +319,7 @@ bool SpikeCosim::step(uint32_t write_reg, uint32_t write_reg_data, uint32_t pc,
     return false;
   }
 
+  stats.update_state(State::from_spike_state(processor->get_state()));
   // Only increment insn_cnt and return true if there are no errors
   insn_cnt++;
   return true;
@@ -329,22 +333,6 @@ bool SpikeCosim::check_retired_instr(uint32_t write_reg,
   // Check the retired instruction and all of its side-effects match those from
   // the DUT
 
-  State state{.pc = dut_pc};
-  for (size_t i = 0; i < NXPR; ++i) {
-    state.xrf.value[i] = processor->get_state()->XPR[i];
-  }
-  state.csr.privilegeMode = processor->get_state()->prv;
-  state.csr.mstatus = processor->get_csr(CSR_MSTATUS);
-  state.csr.mepc = processor->get_csr(CSR_MEPC);
-  state.csr.mtval = processor->get_csr(CSR_MTVAL);
-  state.csr.mtvec = processor->get_csr(CSR_MTVEC);
-  state.csr.mcause = processor->get_csr(CSR_MCAUSE);
-  state.csr.mip = processor->get_csr(CSR_MIP);
-  state.csr.mie = processor->get_csr(CSR_MIE);
-  state.csr.mscratch = processor->get_csr(CSR_MSCRATCH);
-
-  bool mismatch{false};
-
   // Check PC of executed instruction matches the expected PC
   // TODO: Confirm details of why spike sign extends PC, something to do with
   // 32-bit address as 64-bit address must be sign extended?
@@ -354,7 +342,7 @@ bool SpikeCosim::check_retired_instr(uint32_t write_reg,
             << " , but the ISS retired: " << std::hex
             << (processor->get_state()->last_inst_pc & 0xffffffff);
     errors.emplace_back(err_str.str());
-    mismatch = true;
+    return false;
   }
 
   // Check register writes from executed instruction match what is expected
@@ -377,8 +365,7 @@ bool SpikeCosim::check_retired_instr(uint32_t write_reg,
 
       if (!suppress_reg_write &&
           !check_gpr_write(reg_change, write_reg, write_reg_data)) {
-        state.xrf.value[write_reg] = write_reg_data;
-        mismatch = true;
+        return false;
       }
 
       gpr_write_seen = true;
@@ -396,10 +383,8 @@ bool SpikeCosim::check_retired_instr(uint32_t write_reg,
     err_str << "DUT wrote register x" << write_reg
             << " but a write was not expected" << std::endl;
     errors.emplace_back(err_str.str());
-    mismatch = true;
+    return false;
   }
-
-  stats.update_state(state);
 
   // Errors may have been generated outside of step()
   // (e.g. in check_mem_access()).
@@ -407,7 +392,7 @@ bool SpikeCosim::check_retired_instr(uint32_t write_reg,
     return false;
   }
 
-  return !mismatch;
+  return true;
 }
 
 bool SpikeCosim::check_sync_trap(uint32_t write_reg, uint32_t dut_pc,
@@ -605,6 +590,8 @@ void SpikeCosim::initial_proc_setup(uint32_t start_pc, uint32_t start_mtvec,
         std::make_shared<const_csr_t>(processor.get(), CSR_MHPMEVENT3 + i,
                                       1 << i);
   }
+
+  stats.update_state(State::from_spike_state(processor->get_state()));
 }
 
 void SpikeCosim::set_mip(uint32_t pre_mip, uint32_t post_mip) {

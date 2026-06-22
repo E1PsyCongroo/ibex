@@ -17,12 +17,11 @@ BLOCK_RANK_RE = re.compile(
     r"with suspicious\s+'(?P<sus>[^']+)'"
 )
 
-OK_STATUS_RE = re.compile(r"^\[OK\]\s+(?P<bugset>\S+)\s*$")
-
-FAIL_STATUS_RE = re.compile(
-    r"^\[(?:BUILD FAIL|SBFL FAIL|ERROR)\]\s+"
+STATUS_RE = re.compile(
+    r"^\[(?P<kind>OK|BUILD FAIL|SBFL FAIL|ERROR)\]\s+"
     r"(?P<bugset>[^,\s]+)"
     r"(?:,\s*status=(?P<status>-?\d+))?"
+    r"\s*$"
 )
 
 
@@ -30,35 +29,36 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def parse_status(status_path: Path) -> tuple[str, int] | None:
+def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
     """
     Return:
-        (bugset, 0) for OK
-        (bugset, status_num) for FAIL
-        None for unrecognized status.txt
+        (bugset, True,  "OK")
+        (bugset, False, "BUILD FAIL(1)")
+        (bugset, False, "SBFL FAIL(101)")
+        (bugset, False, "ERROR(1)")
     """
     text = read_text(status_path).strip()
 
-    m = OK_STATUS_RE.match(text)
-    if m:
-        return m.group("bugset"), 0
+    m = STATUS_RE.match(text)
+    if not m:
+        print(f"[WARN] unrecognized status format: {status_path}: {text!r}", file=sys.stderr)
+        return None
 
-    m = FAIL_STATUS_RE.match(text)
-    if m:
-        bugset = m.group("bugset")
-        status = m.group("status")
+    kind = m.group("kind")
+    bugset = m.group("bugset")
+    status = m.group("status")
 
-        if status is None:
-            print(
-                f"[WARN] fail status has no numeric status, use -1: {status_path}: {text!r}",
-                file=sys.stderr,
-            )
-            return bugset, -1
+    if kind == "OK":
+        return bugset, True, "OK"
 
-        return bugset, int(status)
+    if status is None:
+        print(
+            f"[WARN] fail status has no numeric status, use -1: {status_path}: {text!r}",
+            file=sys.stderr,
+        )
+        status = "-1"
 
-    print(f"[WARN] unrecognized status format: {status_path}: {text!r}", file=sys.stderr)
-    return None
+    return bugset, False, f"{kind}({status})"
 
 
 def load_bug_info(dataset_root: Path, bugset: str) -> dict[str, Any] | None:
@@ -215,13 +215,13 @@ def process_one_logdir(
     if parsed is None:
         return None
 
-    bugset, status = parsed
+    bugset, is_ok, csv_status = parsed
 
-    # Build/SBFL failed: only record status from status.txt.
-    if status != 0:
+    # Build/SBFL/ERROR failed: only record status from status.txt.
+    if not is_ok:
         return {
             "bugset": bugset,
-            "status": str(status),
+            "status": csv_status,
             "top-k": "",
             "sus": "",
         }
@@ -230,7 +230,7 @@ def process_one_logdir(
     if bug_info is None:
         return {
             "bugset": bugset,
-            "status": "-1",
+            "status": "ERROR(-1)",
             "top-k": "",
             "sus": "",
         }
@@ -242,7 +242,7 @@ def process_one_logdir(
         print(f"[WARN] missing result.log: {result_log_path}", file=sys.stderr)
         return {
             "bugset": bugset,
-            "status": "-1",
+            "status": "ERROR(-1)",
             "top-k": "",
             "sus": "",
         }
@@ -251,7 +251,7 @@ def process_one_logdir(
         print(f"[WARN] missing blocks.json: {blocks_path}", file=sys.stderr)
         return {
             "bugset": bugset,
-            "status": "-1",
+            "status": "ERROR(-1)",
             "top-k": "",
             "sus": "",
         }
@@ -262,7 +262,7 @@ def process_one_logdir(
         print(f"[WARN] no block suspiciousness found in {result_log_path}", file=sys.stderr)
         return {
             "bugset": bugset,
-            "status": "0",
+            "status": "OK",
             "top-k": "over top-0",
             "sus": "",
         }
@@ -278,7 +278,7 @@ def process_one_logdir(
 
     return {
         "bugset": bugset,
-        "status": "0",
+        "status": "OK",
         "top-k": top_k,
         "sus": sus,
     }

@@ -1,7 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DATASET_ROOT="${1:-dataset}"
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  run_sbfl.sh --all <dataset_root>
+  run_sbfl.sh --case <case_dir>
+
+Examples:
+  run_sbfl.sh --all dataset
+  run_sbfl.sh --case dataset/dataset_0/0
+EOF
+}
+
+MODE=""
+TARGET=""
+
+if [[ "$#" -ne 2 ]]; then
+    usage
+    exit 1
+fi
+
+case "$1" in
+    --all)
+        MODE="all"
+        TARGET="$2"
+        ;;
+    --case)
+        MODE="case"
+        TARGET="$2"
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
 
 IBEX_HOME="${IBEX_HOME:-$(pwd)}"
 
@@ -96,6 +133,11 @@ disassemble_elfs() {
 run_one_case() {
     local case_dir="$1"
 
+    if [[ ! -d "${case_dir}" ]]; then
+        echo "[ERROR] case_dir not found: ${case_dir}" >&2
+        return 1
+    fi
+
     local diff
     diff="$(find "${case_dir}" -maxdepth 1 -type f -name "*.sv.diff" | sort | head -n 1)"
 
@@ -116,6 +158,7 @@ run_one_case() {
 
     echo "============================================================"
     echo "[CASE] ${dataset_name}/${case_name}"
+    echo "[DIR ] ${case_dir}"
     echo "[DIFF] ${diff}"
     echo "[LOG ] ${logdir}"
     echo "============================================================"
@@ -140,7 +183,8 @@ run_one_case() {
     fi
 
     if [[ ! -x "${SBFL_BIN}" ]]; then
-        echo "[ERROR] SBFL binary not found or not executable: ${SBFL_BIN}, status=1" | tee -a "${logdir}/status.txt"
+        echo "[ERROR] ${dataset_name}/${case_name}, status=1" | tee -a "${logdir}/status.txt"
+        echo "[ERROR] SBFL binary not found or not executable: ${SBFL_BIN}" | tee -a "${logdir}/status.txt"
         cleanup
         return 1
     fi
@@ -152,6 +196,7 @@ run_one_case() {
         -f \
         -r \
         -c "verilator.branch,verilator.line" \
+        --max-run-timeout 60 \
         --max-iters 50 \
         --top-pass 100 \
         --top-sus 50 \
@@ -184,12 +229,39 @@ run_one_case() {
     return 0
 }
 
-main() {
-    if [[ ! -d "${DATASET_ROOT}" ]]; then
-        echo "[ERROR] dataset root not found: ${DATASET_ROOT}" >&2
-        exit 1
+run_all_cases() {
+    local dataset_root="$1"
+
+    if [[ ! -d "${dataset_root}" ]]; then
+        echo "[ERROR] dataset root not found: ${dataset_root}" >&2
+        return 1
     fi
 
+    local failed=0
+
+    while IFS= read -r -d '' case_dir; do
+        if ! run_one_case "${case_dir}"; then
+            failed=1
+            echo "[WARN] continue after failed case: ${case_dir}"
+        fi
+    done < <(
+        find "${dataset_root}" \
+            -mindepth 2 \
+            -maxdepth 2 \
+            -type d \
+            -print0 | sort -z
+    )
+
+    if [[ "${failed}" -ne 0 ]]; then
+        echo "[DONE] some cases failed"
+        return 1
+    fi
+
+    echo "[DONE] all cases passed"
+    return 0
+}
+
+main() {
     if ! command -v fusesoc >/dev/null 2>&1; then
         echo "[ERROR] fusesoc not found in PATH" >&2
         exit 1
@@ -201,27 +273,18 @@ main() {
         exit 1
     fi
 
-    local failed=0
-
-    while IFS= read -r -d '' case_dir; do
-        if ! run_one_case "${case_dir}"; then
-            failed=1
-            echo "[WARN] continue after failed case: ${case_dir}"
-        fi
-    done < <(
-        find "${DATASET_ROOT}" \
-            -mindepth 2 \
-            -maxdepth 2 \
-            -type d \
-            -print0 | sort -z
-    )
-
-    if [[ "${failed}" -ne 0 ]]; then
-        echo "[DONE] some cases failed"
-        exit 1
-    fi
-
-    echo "[DONE] all cases passed"
+    case "${MODE}" in
+        all)
+            run_all_cases "${TARGET}"
+            ;;
+        case)
+            run_one_case "${TARGET}"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
 }
 
-main "$@"
+main

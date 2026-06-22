@@ -21,11 +21,14 @@
 #include <cstdint>
 #include <vector>
 
-typedef struct {
-  uint64_t value[32];
-} ArchIntRegState;
+#include "riscv/decode.h"
+#include "riscv/processor.h"
 
-typedef struct {
+struct ArchIntRegState {
+  uint64_t value[32];
+};
+
+struct CSRState {
   uint64_t privilegeMode;
   uint64_t mstatus;
   uint64_t sstatus;
@@ -44,13 +47,30 @@ typedef struct {
   uint64_t sscratch;
   uint64_t mideleg;
   uint64_t medeleg;
-} CSRState;
+};
 
-typedef struct {
+struct State {
   uint64_t pc;
   ArchIntRegState xrf;
   CSRState csr;
-} State;
+  static State from_spike_state(state_t *spike_state) {
+    State state{.pc = spike_state->pc};
+    for (size_t i = 0; i < NXPR; ++i) {
+      state.xrf.value[i] = spike_state->XPR[i];
+    }
+    state.csr.privilegeMode = spike_state->prv;
+    state.csr.mstatus = spike_state->mstatus->read();
+    state.csr.mepc = spike_state->mepc->read();
+    state.csr.mtval = spike_state->mtval->read();
+    state.csr.mtvec = spike_state->mtvec->read();
+    state.csr.mcause = spike_state->mcause->read();
+    state.csr.mip = spike_state->mip->read();
+    state.csr.mie = spike_state->mie->read();
+    state.csr.mscratch = spike_state->csrmap[CSR_MSCRATCH]->read();
+
+    return state;
+  }
+};
 
 class StateTracker {
  public:
