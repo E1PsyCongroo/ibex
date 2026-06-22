@@ -98,6 +98,7 @@ void create_cosim(svBit secure_ibex, svBit icache_en,
 
 extern "C" int sim_main(int argc, char **argv) {
   VerilatorSimCtrl::GetInstance().Reset();
+  stats.reset();
   auto verilator_contextp = std::make_unique<VerilatedContext>();
 
   Verilated::threadContextp(verilator_contextp.get());
