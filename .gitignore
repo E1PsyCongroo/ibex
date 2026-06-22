@@ -1,6 +1,6 @@
 # Build output
-build
-target
+build/
+target/
 
 # Common editor/IDE config and temporary files
 .project
@@ -27,3 +27,4 @@ env.sh
 Cargo.lock
 compile_commands.json
 
+logs/

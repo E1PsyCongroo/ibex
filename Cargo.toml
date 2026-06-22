@@ -2,7 +2,4 @@
 members = [
     "dv/verilator/simple_system_sbfl/sbfl"
 ]
-exclude = [
-    "build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/sbfl"
-]
 resolver = "2"
