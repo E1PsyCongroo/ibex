@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -1381,7 +1381,7 @@
+   assign rvfi_ext_nmi_int             = rvfi_ext_stage_nmi_int             [RVFI_STAGES];
+   assign rvfi_ext_debug_req           = rvfi_ext_stage_debug_req           [RVFI_STAGES];
+   assign rvfi_ext_debug_mode          = rvfi_ext_stage_debug_mode          [RVFI_STAGES-1];
+-  assign rvfi_ext_mcycle              = rvfi_ext_stage_mcycle              [RVFI_STAGES-1];
++  assign rvfi_ext_mcycle              = rvfi_ext_stage_mcycle              [RVFI_STAGES-0];
+   assign rvfi_ext_mhpmcounters        = rvfi_ext_stage_mhpmcounters        [RVFI_STAGES-1];
+   assign rvfi_ext_mhpmcountersh       = rvfi_ext_stage_mhpmcountersh       [RVFI_STAGES-1];
+   assign rvfi_ext_ic_scr_key_valid    = rvfi_ext_stage_ic_scr_key_valid    [RVFI_STAGES-1];
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

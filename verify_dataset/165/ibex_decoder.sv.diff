@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -252,7 +252,7 @@
+           jump_set_o       = 1'b1;
+         end else begin
+           // Calculate and store PC+4
+-          rf_we            = 1'b1;
++          rf_we            = 1'b0;
+         end
+       end
+ 
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

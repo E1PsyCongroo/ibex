@@ -1,0 +1,16 @@
+--- a/rtl/ibex_multdiv_fast.sv
++++ a/rtl/ibex_multdiv_fast.sv
+@@ -296,7 +296,7 @@
+           // al*bl
+           mult_op_a = op_a_i[`OP_L];
+           mult_op_b = op_b_i[`OP_L];
+-          sign_a    = 1'b0;
++          sign_a    = 1'b1;
+           sign_b    = 1'b0;
+           accum     = '0;
+           mac_res_d = mac_res;
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

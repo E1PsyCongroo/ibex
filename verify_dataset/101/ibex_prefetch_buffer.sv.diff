@@ -1,0 +1,16 @@
+--- a/rtl/ibex_prefetch_buffer.sv
++++ a/rtl/ibex_prefetch_buffer.sv
+@@ -167,7 +167,7 @@
+   // Update on a branch or as soon as a request is issued
+   assign fetch_addr_en = branch_i | (valid_new_req & ~valid_req_q);
+ 
+-  assign fetch_addr_d = (branch_i ? addr_i : {fetch_addr_q[31:2], 2'b00}) +
++  assign fetch_addr_d = (branch_i ? addr_i : {fetch_addr_q[31:2], 2'b00}) -
+                         // Current address + 4
+                         {{29{1'b0}},(valid_new_req & ~valid_req_q),2'b00};
+ 
+@@ -262,3 +262,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++

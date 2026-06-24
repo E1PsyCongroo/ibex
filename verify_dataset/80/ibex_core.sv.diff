@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -1343,7 +1343,7 @@
+   assign rvfi_rs1_rdata = rvfi_stage_rs1_rdata[RVFI_STAGES-1];
+   assign rvfi_rs2_rdata = rvfi_stage_rs2_rdata[RVFI_STAGES-1];
+   assign rvfi_rs3_rdata = rvfi_stage_rs3_rdata[RVFI_STAGES-1];
+-  assign rvfi_rd_addr   = rvfi_stage_rd_addr  [RVFI_STAGES-1];
++  assign rvfi_rd_addr   = rvfi_stage_rd_addr  [RVFI_STAGES-0];
+   assign rvfi_rd_wdata  = rvfi_stage_rd_wdata [RVFI_STAGES-1];
+   assign rvfi_pc_rdata  = rvfi_stage_pc_rdata [RVFI_STAGES-1];
+   assign rvfi_pc_wdata  = rvfi_stage_pc_wdata [RVFI_STAGES-1];
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

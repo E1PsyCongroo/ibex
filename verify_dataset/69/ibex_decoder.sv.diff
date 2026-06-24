@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -220,7 +220,7 @@
+     rf_ren_b_o            = 1'b0;
+ 
+     csr_access_o          = 1'b0;
+-    csr_illegal           = 1'b0;
++    csr_illegal           = 1'b1;
+     csr_op                = CSR_OP_READ;
+ 
+     data_we_o             = 1'b0;
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

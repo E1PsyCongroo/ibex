@@ -1,0 +1,16 @@
+--- a/rtl/ibex_load_store_unit.sv
++++ a/rtl/ibex_load_store_unit.sv
+@@ -539,7 +539,7 @@
+   assign addr_last_o   = addr_last_q;
+ 
+   // Signal a load or store error depending on the transaction type outstanding
+-  assign load_err_o      = data_or_pmp_err & ~data_we_q & lsu_resp_valid_o;
++  assign load_err_o      = data_or_pmp_err | ~data_we_q & lsu_resp_valid_o;
+   assign store_err_o     = data_or_pmp_err &  data_we_q & lsu_resp_valid_o;
+   // Integrity errors are their own category for timing reasons. load_err_o is factored directly
+   // into data_req_o to enable synchronous exception on load errors without performance loss (An
+@@ -622,3 +622,4 @@
+   `ASSERT(IbexDataAddrUnaligned, data_req_o |-> (data_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

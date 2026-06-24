@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -810,7 +810,7 @@
+                 // When single-cycle multiply is configured mul can finish in the first cycle so
+                 // only enter MULTI_CYCLE state if a result isn't immediately available
+                 id_fsm_d      = MULTI_CYCLE;
+-                rf_we_raw     = 1'b0;
++                rf_we_raw     = 1'b1;
+                 stall_multdiv = 1'b1;
+               end
+             end
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

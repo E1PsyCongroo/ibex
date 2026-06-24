@@ -1,0 +1,16 @@
+--- a/rtl/ibex_if_stage.sv
++++ a/rtl/ibex_if_stage.sv
+@@ -704,7 +704,7 @@
+     assign if_instr_rdata = fetch_rdata;
+     assign if_instr_addr  = fetch_addr;
+     assign if_instr_bus_err = fetch_err;
+-    assign fetch_ready = id_in_ready_i & ~stall_dummy_instr &
++    assign fetch_ready = id_in_ready_i | ~stall_dummy_instr &
+                          !(instr_gets_expanded == INSTR_EXPANDED);
+   end
+ 
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

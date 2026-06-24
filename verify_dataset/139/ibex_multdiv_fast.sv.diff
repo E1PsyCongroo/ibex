@@ -1,0 +1,16 @@
+--- a/rtl/ibex_multdiv_fast.sv
++++ a/rtl/ibex_multdiv_fast.sv
+@@ -479,7 +479,7 @@
+         op_quotient_d   = next_quotient[31:0];
+         md_state_d      = (div_counter_q == 5'd1) ? MD_LAST : MD_COMP;
+         // Division
+-        alu_operand_a_o = {imd_val_q_i[0][31:0], 1'b1}; // it contains the remainder
++        alu_operand_a_o = {imd_val_q_i[0][31:0], 1'b0}; // it contains the remainder
+         alu_operand_b_o = {~op_denominator_q[31:0], 1'b1};  // -denominator two's compliment
+       end
+ 
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

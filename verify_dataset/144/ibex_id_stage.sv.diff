@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -886,7 +886,7 @@
+   `ASSERT(IllegalInsnStallMustBeMemStall, illegal_insn_o & stall_id |-> stall_mem &
+     ~(stall_ld_hz | stall_multdiv | stall_jump | stall_branch | stall_alu))
+ 
+-  assign instr_done = ~stall_id & ~flush_id & instr_executing;
++  assign instr_done = ~stall_id & ~flush_id | instr_executing;
+ 
+   // Signal instruction in ID is in it's first cycle. It can remain in its
+   // first cycle if it is stalled.
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

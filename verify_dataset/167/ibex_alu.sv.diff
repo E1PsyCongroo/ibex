@@ -1,0 +1,16 @@
+--- a/rtl/ibex_alu.sv
++++ a/rtl/ibex_alu.sv
+@@ -375,7 +375,7 @@
+       ALU_ORN,
+       ALU_ANDN: bwlogic_op_b_negate = (RV32B != RV32BNone) ? 1'b1 : 1'b0;
+       ALU_CMIX: bwlogic_op_b_negate = (RV32B != RV32BNone) ? ~instr_first_cycle_i : 1'b0;
+-      default:  bwlogic_op_b_negate = 1'b0;
++      default:  bwlogic_op_b_negate = 1'b1;
+     endcase
+   end
+ 
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

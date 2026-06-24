@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -541,7 +541,7 @@
+             {7'b000_0001, 3'b101}: begin // divu
+               multdiv_operator_o    = MD_OP_DIV;
+               multdiv_signed_mode_o = 2'b00;
+-              illegal_insn          = (RV32M == RV32MNone) ? 1'b1 : 1'b0;
++              illegal_insn          = (RV32M != RV32MNone) ? 1'b1 : 1'b0;
+             end
+             {7'b000_0001, 3'b110}: begin // rem
+               multdiv_operator_o    = MD_OP_REM;
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

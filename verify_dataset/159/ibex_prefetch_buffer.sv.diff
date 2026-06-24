@@ -1,0 +1,16 @@
+--- a/rtl/ibex_prefetch_buffer.sv
++++ a/rtl/ibex_prefetch_buffer.sv
+@@ -215,7 +215,7 @@
+     // Entries > 0 consider the FIFO fill state to calculate their next state (by checking
+     // whether the previous entry is valid)
+ 
+-      assign rdata_outstanding_n[i] = (valid_req & instr_gnt_i &
++      assign rdata_outstanding_n[i] = (valid_req_d  & instr_gnt_i &
+                                        rdata_outstanding_q[i-1]) |
+                                       rdata_outstanding_q[i];
+       assign branch_discard_n[i]    = (valid_req & instr_gnt_i & discard_req_d &
+@@ -262,3 +262,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++

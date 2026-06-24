@@ -1,0 +1,16 @@
+--- a/rtl/ibex_multdiv_fast.sv
++++ a/rtl/ibex_multdiv_fast.sv
+@@ -126,7 +126,7 @@
+ 
+   assign imd_val_d_o[1] = {2'b0, op_denominator_d};
+   assign imd_val_we_o[1] = div_en_internal;
+-  assign op_denominator_q = imd_val_q_i[1][31:0];
++  assign op_denominator_q = imd_val_q_i[0][31:0];
+   logic [1:0] unused_imd_val;
+   assign unused_imd_val = imd_val_q_i[1][33:32];
+   logic unused_mac_res_ext;
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

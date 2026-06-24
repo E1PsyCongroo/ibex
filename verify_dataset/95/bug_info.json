@@ -1,0 +1,7 @@
+{
+  "module_name": "ibex_load_store_unit",
+  "scope_name": "TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core.load_store_unit_i",
+  "modify_line": [
+    325
+  ]
+}

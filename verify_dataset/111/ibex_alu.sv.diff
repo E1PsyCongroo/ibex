@@ -1,0 +1,16 @@
+--- a/rtl/ibex_alu.sv
++++ a/rtl/ibex_alu.sv
+@@ -102,7 +102,7 @@
+   end
+ 
+   // actual adder
+-  assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
++  assign adder_result_ext_o = $unsigned(adder_in_a) - $unsigned(adder_in_b);
+ 
+   assign adder_result       = adder_result_ext_o[32:1];
+ 
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

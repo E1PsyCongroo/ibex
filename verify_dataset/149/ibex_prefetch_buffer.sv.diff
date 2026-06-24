@@ -1,0 +1,16 @@
+--- a/rtl/ibex_prefetch_buffer.sv
++++ a/rtl/ibex_prefetch_buffer.sv
+@@ -113,7 +113,7 @@
+   //////////////
+ 
+   // Make a new request any time there is space in the FIFO, and space in the request queue
+-  assign valid_new_req = req_i & (fifo_ready | branch_i) &
++  assign valid_new_req = req_i & (fifo_ready | req_i) &
+                          ~rdata_outstanding_q[NUM_REQS-1];
+ 
+   assign valid_req = valid_req_q | valid_new_req;
+@@ -262,3 +262,4 @@
+   assign instr_addr_o = instr_addr_w_aligned;
+ 
+ endmodule
++

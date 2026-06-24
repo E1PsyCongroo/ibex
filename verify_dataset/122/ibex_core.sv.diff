@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -900,7 +900,7 @@
+   assign rf_raddr_a_o     = rf_raddr_a;
+   assign rf_waddr_wb_o    = rf_waddr_wb;
+   assign rf_we_wb_o       = rf_we_wb;
+-  assign rf_raddr_b_o     = rf_raddr_b;
++  assign rf_raddr_b_o     = rf_raddr_a;
+ 
+   if (RegFileECC) begin : gen_regfile_ecc
+ 
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

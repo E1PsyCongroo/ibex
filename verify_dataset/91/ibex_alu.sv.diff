@@ -1,0 +1,16 @@
+--- a/rtl/ibex_alu.sv
++++ a/rtl/ibex_alu.sv
+@@ -386,7 +386,7 @@
+   assign bwlogic_xor_result = operand_a_i ^ bwlogic_operand_b;
+ 
+   assign bwlogic_or  = (operator_i == ALU_OR)  | (operator_i == ALU_ORN);
+-  assign bwlogic_and = (operator_i == ALU_AND) | (operator_i == ALU_ANDN);
++  assign bwlogic_and = (operator_i == ALU_AND) & (operator_i == ALU_ANDN);
+ 
+   always_comb begin
+     unique case (1'b1)
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

@@ -1,0 +1,7 @@
+{
+  "module_name": "ibex_counter",
+  "scope_name": "TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core.cs_registers_i.minstret_counter_i",
+  "modify_line": [
+    100
+  ]
+}

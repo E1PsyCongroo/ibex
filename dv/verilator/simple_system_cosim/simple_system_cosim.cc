@@ -50,15 +50,15 @@ class SimpleSystemCosim : public SimpleSystem {
   }
 
  protected:
-  VerilatorCoverage _coverage;
+  // VerilatorCoverage _coverage;
   void CopyMemAreaToCosim(MemArea *area, uint32_t base_addr) {
     auto mem_data = area->Read(0, area->GetSizeWords());
     _cosim->backdoor_write_mem(base_addr, area->GetSizeBytes(), &mem_data[0]);
   }
 
   virtual int Setup(int argc, char **argv, bool &exit_app) override {
-    VerilatorSimCtrl &simctrl = VerilatorSimCtrl::GetInstance();
-    simctrl.RegisterExtension(&_coverage);
+    // VerilatorSimCtrl &simctrl = VerilatorSimCtrl::GetInstance();
+    // simctrl.RegisterExtension(&_coverage);
 
     int ret_code = SimpleSystem::Setup(argc, argv, exit_app);
     if (exit_app) {

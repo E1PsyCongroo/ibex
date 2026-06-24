@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -395,7 +395,7 @@
+   end
+ 
+   // ALU MUX for Operand B
+-  assign alu_operand_b = (alu_op_b_mux_sel == OP_B_IMM) ? imm_b : rf_rdata_b_fwd;
++  assign alu_operand_b = (alu_op_b_mux_sel == OP_B_IMM) ? imm_a  : rf_rdata_b_fwd;
+ 
+   /////////////////////////////////////////
+   // Multicycle Operation Stage Register //
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

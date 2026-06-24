@@ -1,0 +1,16 @@
+--- a/rtl/ibex_counter.sv
++++ a/rtl/ibex_counter.sv
+@@ -97,7 +97,7 @@
+     assign counter_val_upd_o[63:CounterWidth]  = '0;
+     assign unused_counter_load                 = counter_load[63:CounterWidth];
+   end else begin : g_counter_full
+-    assign counter           = counter_q;
++    assign counter           = counter_d;
+ 
+     if (ProvideValUpd) begin : g_counter_val_upd_o
+       assign counter_val_upd_o = counter_upd;
+@@ -109,3 +109,4 @@
+   assign counter_val_o = counter;
+ 
+ endmodule
++

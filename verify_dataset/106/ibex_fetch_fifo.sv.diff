@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -199,7 +199,7 @@
+     assign valid_pushed[i] = (in_valid_i & lowest_free_entry[i]) |
+                              valid_q[i];
+     // Popping the FIFO shifts all entries down
+-    assign valid_popped[i] = pop_fifo ? valid_pushed[i+1] : valid_pushed[i];
++    assign valid_popped[i] = pop_fifo ? valid_popped[i+1] : valid_popped[i] ? valid_pushed[i+1] : valid_pushed[i];
+     // All entries are wiped out on a clear
+     assign valid_d[i] = valid_popped[i] & ~clear_i;
+ 
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

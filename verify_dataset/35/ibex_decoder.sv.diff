@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -352,7 +352,7 @@
+ 
+       OPCODE_OP_IMM: begin // Register-Immediate ALU Operations
+         rf_ren_a_o       = 1'b1;
+-        rf_we            = 1'b1;
++        rf_we            = 1'b0;
+ 
+         unique case (instr[14:12])
+           3'b000,
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

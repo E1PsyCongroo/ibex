@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -195,7 +195,7 @@
+   assign wfi_insn        = wfi_insn_i        & instr_valid_i;
+   assign ebrk_insn       = ebrk_insn_i       & instr_valid_i;
+   assign csr_pipe_flush  = csr_pipe_flush_i  & instr_valid_i;
+-  assign instr_fetch_err = instr_fetch_err_i & instr_valid_i;
++  assign instr_fetch_err = instr_fetch_err_i | instr_valid_i;
+ 
+   // This is recorded in the illegal_insn_q flop to help timing.  Specifically
+   // it is needed to break the path from ibex_cs_registers/illegal_csr_insn_o
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

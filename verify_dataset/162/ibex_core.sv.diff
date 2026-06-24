@@ -1,0 +1,16 @@
+--- a/rtl/ibex_core.sv
++++ a/rtl/ibex_core.sv
+@@ -1220,7 +1220,7 @@
+     assign unused_csr_pmp_mseccfg = csr_pmp_mseccfg;
+ 
+     // Output tieoff
+-    assign pmp_req_err[PMP_I]  = 1'b0;
++    assign pmp_req_err[PMP_I]  = 1'b1;
+     assign pmp_req_err[PMP_I2] = 1'b0;
+     assign pmp_req_err[PMP_D]  = 1'b0;
+   end
+@@ -2021,3 +2021,4 @@
+ `endif
+ 
+ endmodule
++

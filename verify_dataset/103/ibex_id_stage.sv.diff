@@ -1,0 +1,16 @@
+--- a/rtl/ibex_id_stage.sv
++++ a/rtl/ibex_id_stage.sv
+@@ -850,7 +850,7 @@
+ 
+         MULTI_CYCLE: begin
+           if(multdiv_en_dec) begin
+-            rf_we_raw       = rf_we_dec & ex_valid_i;
++            rf_we_raw       = rf_we_id_o  & ex_valid_i;
+           end
+ 
+           if (multicycle_done & ready_wb_i) begin
+@@ -1154,3 +1154,4 @@
+   `endif
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- a/rtl/ibex_multdiv_fast.sv
++++ a/rtl/ibex_multdiv_fast.sv
+@@ -464,7 +464,7 @@
+ 
+       MD_ABS_B: begin
+         // remainder
+-        op_remainder_d   = { 33'h0, op_numerator_q[31]};
++        op_remainder_d   = { 33'h0, op_numerator_q[7]};
+         // B abs value
+         op_denominator_d = div_sign_b ? alu_adder_i : op_b_i;
+         md_state_d       = MD_COMP;
+@@ -554,3 +554,4 @@
+ `endif
+ 
+ endmodule // ibex_mult
++

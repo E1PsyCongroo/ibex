@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -193,7 +193,7 @@
+   assign mret_insn       = mret_insn_i       & instr_valid_i;
+   assign dret_insn       = dret_insn_i       & instr_valid_i;
+   assign wfi_insn        = wfi_insn_i        & instr_valid_i;
+-  assign ebrk_insn       = ebrk_insn_i       & instr_valid_i;
++  assign ebrk_insn       = ebrk_insn_i       | instr_valid_i;
+   assign csr_pipe_flush  = csr_pipe_flush_i  & instr_valid_i;
+   assign instr_fetch_err = instr_fetch_err_i & instr_valid_i;
+ 
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

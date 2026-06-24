@@ -1,0 +1,16 @@
+--- a/rtl/ibex_if_stage.sv
++++ a/rtl/ibex_if_stage.sv
+@@ -484,7 +484,7 @@
+     assign instr_gets_expanded_out = instr_gets_expanded;
+     assign illegal_c_instr_out     = illegal_c_insn;
+     assign instr_err_out           = if_instr_err;
+-    assign stall_dummy_instr       = 1'b0;
++    assign stall_dummy_instr       = 1'b1;
+     assign dummy_instr_id_o        = 1'b0;
+   end
+ 
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -275,7 +275,7 @@
+       end
+ 
+       OPCODE_BRANCH: begin // Branch
+-        branch_in_dec_o       = 1'b1;
++        branch_in_dec_o       = 1'b0;
+         // Check branch condition selection
+         unique case (instr[14:12])
+           3'b000,
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -174,7 +174,7 @@
+ 
+   // destination register
+   assign instr_rd = instr[11:7];
+-  assign rf_waddr_o   = instr_rd; // rd
++  assign rf_waddr_o   = instr_rs1; // rd
+ 
+   ////////////////////
+   // Register check //
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

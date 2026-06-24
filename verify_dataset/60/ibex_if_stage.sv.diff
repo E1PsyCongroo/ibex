@@ -1,0 +1,16 @@
+--- a/rtl/ibex_if_stage.sv
++++ a/rtl/ibex_if_stage.sv
+@@ -250,7 +250,7 @@
+     // Don't care if error is correctable or not, they're all treated the same
+     assign instr_intg_err = |ecc_err;
+   end else begin : g_no_mem_ecc
+-    assign instr_intg_err            = 1'b0;
++    assign instr_intg_err            = 1'b1;
+   end
+ 
+   assign instr_err        = instr_intg_err | instr_bus_err_i;
+@@ -837,3 +837,4 @@
+   `ASSERT(IbexInstrAddrUnaligned, instr_req_o |-> (instr_addr_o[1:0] == 2'b00))
+ 
+ endmodule
++

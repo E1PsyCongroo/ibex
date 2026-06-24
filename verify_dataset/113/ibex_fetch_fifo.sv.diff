@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -166,7 +166,7 @@
+   end
+ 
+   // Output PC of current instruction
+-  assign out_addr_o      = {instr_addr_q, 1'b0};
++  assign out_addr_o      = {instr_addr_q, 1'b1};
+ 
+   // The LSB of the address is unused, since all addresses are halfword aligned
+   assign unused_addr_in = in_addr_i[0];
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

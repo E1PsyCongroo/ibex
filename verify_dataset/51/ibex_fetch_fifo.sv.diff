@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -144,6 +144,8 @@
+ 
+   assign instr_addr_next = (instr_addr_q[31:1] +
+                             // Increment address by 4 or 2
++                            {29'd0,~out_addr_o,out_addr_o}[31:1] +
++                            // Increment address by 4 or 2
+                             {29'd0,~addr_incr_two,addr_incr_two});
+ 
+   assign instr_addr_d = clear_i ? in_addr_i[31:1] :
+@@ -267,3 +269,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

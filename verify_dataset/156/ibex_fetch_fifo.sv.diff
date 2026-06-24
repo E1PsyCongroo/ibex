@@ -1,0 +1,16 @@
+--- a/rtl/ibex_fetch_fifo.sv
++++ a/rtl/ibex_fetch_fifo.sv
+@@ -214,7 +214,7 @@
+   end
+   // The top entry is similar but with simpler muxing
+   assign lowest_free_entry[DEPTH-1] = ~valid_q[DEPTH-1] & valid_q[DEPTH-2];
+-  assign valid_pushed     [DEPTH-1] = valid_q[DEPTH-1] | (in_valid_i & lowest_free_entry[DEPTH-1]);
++  assign valid_pushed     [DEPTH-1] = valid_q[DEPTH-1] | (in_valid_i | lowest_free_entry[DEPTH-1]);
+   assign valid_popped     [DEPTH-1] = pop_fifo ? 1'b0 : valid_pushed[DEPTH-1];
+   assign valid_d [DEPTH-1]          = valid_popped[DEPTH-1] & ~clear_i;
+   assign entry_en[DEPTH-1]          = in_valid_i & lowest_free_entry[DEPTH-1];
+@@ -267,3 +267,4 @@
+       (in_valid_i) |-> (!valid_q[DEPTH-1] || clear_i))
+ 
+ endmodule
++

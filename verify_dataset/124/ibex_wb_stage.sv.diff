@@ -1,0 +1,16 @@
+--- a/rtl/ibex_wb_stage.sv
++++ a/rtl/ibex_wb_stage.sv
+@@ -238,7 +238,7 @@
+     assign instr_done_wb_o        = 1'b0;
+   end
+ 
+-  assign rf_wdata_wb_mux[1] = rf_wdata_lsu_i;
++  assign rf_wdata_wb_mux[0] = rf_wdata_lsu_i;
+ 
+   // RF write data can come from ID results (all RF writes that aren't because of loads will come
+   // from here) or the LSU (RF writes for load data)
+@@ -250,3 +250,4 @@
+ 
+   `ASSERT(RFWriteFromOneSourceOnly, $onehot0(rf_wdata_wb_mux_we))
+ endmodule
++

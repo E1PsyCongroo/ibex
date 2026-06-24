@@ -1,0 +1,16 @@
+--- a/rtl/ibex_alu.sv
++++ a/rtl/ibex_alu.sv
+@@ -92,7 +92,7 @@
+   end
+ 
+   // prepare operand b
+-  assign operand_b_neg = {operand_b_i,1'b0} ^ {33{1'b1}};
++  assign operand_b_neg = {operand_b_i,1'b1} ^ {33{1'b1}};
+   always_comb begin
+     unique case (1'b1)
+       multdiv_sel_i:     adder_in_b = multdiv_operand_b_i;
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

@@ -1,0 +1,16 @@
+--- a/rtl/ibex_decoder.sv
++++ a/rtl/ibex_decoder.sv
+@@ -235,7 +235,7 @@
+     ecall_insn_o          = 1'b0;
+     wfi_insn_o            = 1'b0;
+ 
+-    opcode                = opcode_e'(instr[6:0]);
++    opcode                = opcode_e'(instr[2:0]);
+ 
+     unique case (opcode)
+ 
+@@ -1210,3 +1210,4 @@
+   `ASSERT(IbexRegImmAluOpKnown, (opcode == OPCODE_OP_IMM) |->
+       !$isunknown(instr[14:12]))
+ endmodule // controller
++

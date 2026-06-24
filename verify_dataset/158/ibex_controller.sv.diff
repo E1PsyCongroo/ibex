@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -467,7 +467,7 @@
+     // This avoid having to factor those conditions into the pc_mux and exc_pc_mux select signals
+     // helping timing.
+     pc_mux_o               = PC_BOOT;
+-    pc_set_o               = 1'b0;
++    pc_set_o               = 1'b1;
+     nt_branch_mispredict_o = 1'b0;
+ 
+     exc_pc_mux_o           = EXC_PC_IRQ;
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

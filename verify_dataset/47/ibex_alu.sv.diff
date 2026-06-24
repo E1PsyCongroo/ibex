@@ -1,0 +1,16 @@
+--- a/rtl/ibex_alu.sv
++++ a/rtl/ibex_alu.sv
+@@ -390,7 +390,7 @@
+ 
+   always_comb begin
+     unique case (1'b1)
+-      bwlogic_or:  bwlogic_result = bwlogic_or_result;
++      bwlogic_and:  bwlogic_result = bwlogic_or_result;
+       bwlogic_and: bwlogic_result = bwlogic_and_result;
+       default:     bwlogic_result = bwlogic_xor_result;
+     endcase
+@@ -1398,3 +1398,4 @@
+   assign unused_shift_amt_compl = shift_amt_compl[5];
+ 
+ endmodule
++

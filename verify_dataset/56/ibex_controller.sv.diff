@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -861,7 +861,7 @@
+   assign stall = stall_id_i | stall_wb_i;
+ 
+   // signal to IF stage that ID stage is ready for next instr
+-  assign id_in_ready_o = ~stall & ~halt_if & ~retain_id;
++  assign id_in_ready_o = ~stall & ~halt_if | ~retain_id;
+ 
+   // kill instr in IF-ID pipeline reg that are done, or if a
+   // multicycle instr causes an exception for example
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

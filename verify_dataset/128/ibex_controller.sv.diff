@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -202,7 +202,7 @@
+   // to pc_set_o.  Clear when controller is in FLUSH so it won't remain set
+   // once illegal instruction is handled.
+   // illegal_insn_i only set when instr_valid_i is set.
+-  assign illegal_insn_d = illegal_insn_i & (ctrl_fsm_cs != FLUSH);
++  assign illegal_insn_d = illegal_insn_i | (ctrl_fsm_cs != FLUSH);
+ 
+   `ASSERT(IllegalInsnOnlyIfInsnValid, illegal_insn_i |-> instr_valid_i)
+ 
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++

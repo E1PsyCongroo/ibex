@@ -1,0 +1,16 @@
+--- a/rtl/ibex_controller.sv
++++ a/rtl/ibex_controller.sv
+@@ -211,7 +211,7 @@
+   // the FLUSH state so the cycle following exc_req_q won't remain set for an
+   // exception request that has just been handled.
+   // All terms in this expression are qualified by instr_valid_i
+-  assign exc_req_d = (ecall_insn | ebrk_insn | illegal_insn_d | instr_fetch_err) &
++  assign exc_req_d = (ecall_insn | ebrk_insn | illegal_insn_d | instr_fetch_err) |
+                      (ctrl_fsm_cs != FLUSH);
+ 
+   // LSU exception requests
+@@ -942,3 +942,4 @@
+     assign rvfi_flush_next = ctrl_fsm_ns == FLUSH;
+   `endif
+ endmodule
++
