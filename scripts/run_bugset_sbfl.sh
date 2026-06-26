@@ -132,9 +132,10 @@ RUN_ID="$(date +"%Y-%m-%d-%H-%M-%S")_$$"
 RUN_TMP="${TMP_ROOT}/${RUN_ID}"
 WORK_ROOT="${RUN_TMP}/work"
 LOCK_FILE="${RUN_TMP}/status.lock"
-SUMMARY_FILE="${LOGS_ROOT}/run_${RUN_ID}_status.tsv"
+SUMMARY_FILE="${LOGS_ROOT}/${RUN_ID}/run_status.tsv"
 
 mkdir -p "${WORK_ROOT}"
+mkdir -p "${LOGS_ROOT}/${RUN_ID}"
 
 case "${RUN_TMP}/" in
 "${IBEX_HOME}/"*)
@@ -351,7 +352,7 @@ run_one_diff() (
   safe_rel_dir="$(safe_path_name "${rel_dir}")"
   safe_diff_name="$(safe_path_name "${diff_name%.sv.diff}")"
 
-  local logdir="${LOGS_ROOT}/${safe_rel_dir}/${idx}_${safe_diff_name}/${RUN_ID}"
+  local logdir="${LOGS_ROOT}/${RUN_ID}/${idx}_${safe_rel_dir}_${safe_diff_name}"
   local workdir="${WORK_ROOT}/${idx}_${safe_rel_dir}_${safe_diff_name}"
 
   mkdir -p "${logdir}"

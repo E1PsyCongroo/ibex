@@ -17,9 +17,17 @@ BLOCK_RANK_RE = re.compile(
     r"with suspicious\s+'(?P<sus>[^']+)'"
 )
 
+# Examples:
+#   [OK] 0/ibex_decoder.sv.diff, status=0
+#   [BUILD_FAIL] 0/ibex_decoder.sv.diff, status=1
+#   [SBFL_FAIL] 0/ibex_decoder.sv.diff, status=101
+#   [ERROR] 0/ibex_decoder.sv.diff, status=1
+#
+# Also compatible with:
+#   [BUILD FAIL] 0/ibex_decoder.sv.diff, status=1
 STATUS_RE = re.compile(
-    r"^\[(?P<kind>OK|BUILD FAIL|SBFL FAIL|ERROR)\]\s+"
-    r"(?P<bugset>[^,\s]+)"
+    r"^\[(?P<kind>[A-Z_ ]+)\]\s+"
+    r"(?P<bugcase>[^,\s]+)"
     r"(?:,\s*status=(?P<status>-?\d+))?"
     r"\s*$"
 )
@@ -29,13 +37,20 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def normalize_status_kind(kind: str) -> str:
+    return kind.strip().replace(" ", "_")
+
+
 def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
     """
     Return:
-        (bugset, True,  "OK")
-        (bugset, False, "BUILD FAIL(1)")
-        (bugset, False, "SBFL FAIL(101)")
-        (bugset, False, "ERROR(1)")
+        (bugcase, True,  "OK")
+        (bugcase, False, "BUILD_FAIL(1)")
+        (bugcase, False, "SBFL_FAIL(101)")
+        (bugcase, False, "ERROR(1)")
+
+    bugcase example:
+        0/ibex_decoder.sv.diff
     """
     text = read_text(status_path).strip()
 
@@ -44,12 +59,12 @@ def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
         print(f"[WARN] unrecognized status format: {status_path}: {text!r}", file=sys.stderr)
         return None
 
-    kind = m.group("kind")
-    bugset = m.group("bugset")
+    kind = normalize_status_kind(m.group("kind"))
+    bugcase = m.group("bugcase")
     status = m.group("status")
 
     if kind == "OK":
-        return bugset, True, "OK"
+        return bugcase, True, "OK"
 
     if status is None:
         print(
@@ -58,11 +73,63 @@ def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
         )
         status = "-1"
 
-    return bugset, False, f"{kind}({status})"
+    return bugcase, False, f"{kind}({status})"
 
 
-def load_bug_info(dataset_root: Path, bugset: str) -> dict[str, Any] | None:
-    bug_info_path = dataset_root / bugset / "bug_info.json"
+def resolve_bugcase_ref(
+    bugset_root: Path,
+    bugcase: str,
+) -> tuple[str, str, Path, Path] | None:
+    """
+    For status line:
+        [OK] 0/ibex_decoder.sv.diff, status=0
+
+    Resolve to:
+        bugset_name = "0"
+        diff_name   = "ibex_decoder.sv.diff"
+        case_dir    = bugset_root / "0"
+        diff_path   = bugset_root / "0" / "ibex_decoder.sv.diff"
+
+    Return:
+        (bugset_name, diff_name, case_dir, diff_path)
+    """
+    bugcase_path = Path(bugcase)
+
+    if not bugcase_path.name.endswith(".sv.diff"):
+        print(
+            f"[WARN] bugcase does not end with .sv.diff: {bugcase!r}",
+            file=sys.stderr,
+        )
+        return None
+
+    rel_case_dir = bugcase_path.parent
+    diff_name = bugcase_path.name
+
+    if str(rel_case_dir) == ".":
+        print(
+            f"[WARN] bugcase has no parent directory: {bugcase!r}",
+            file=sys.stderr,
+        )
+        return None
+
+    case_dir = bugset_root / rel_case_dir
+    diff_path = case_dir / diff_name
+
+    if not case_dir.is_dir():
+        print(f"[WARN] missing case dir: {case_dir}", file=sys.stderr)
+        return None
+
+    if not diff_path.is_file():
+        print(f"[WARN] missing diff file: {diff_path}", file=sys.stderr)
+        return None
+
+    bugset_name = str(rel_case_dir)
+
+    return bugset_name, diff_name, case_dir, diff_path
+
+
+def load_bug_info_from_case_dir(case_dir: Path) -> dict[str, Any] | None:
+    bug_info_path = case_dir / "bug_info.json"
 
     if not bug_info_path.is_file():
         print(f"[WARN] missing bug_info.json: {bug_info_path}", file=sys.stderr)
@@ -121,7 +188,6 @@ def parse_block_suspiciousness(result_log_path: Path) -> list[dict[str, Any]]:
         if not in_block_section:
             continue
 
-        # If another section starts after block ranking, stop.
         if line.startswith("Suspiciousness of ") and line != "Suspiciousness of block:":
             break
 
@@ -204,8 +270,22 @@ def iter_status_dirs(logs_root: Path):
         yield status_path.parent, status_path
 
 
+def error_row(
+    bugset: str,
+    diff: str,
+    status: str = "ERROR(-1)",
+) -> dict[str, str]:
+    return {
+        "bugset": bugset,
+        "diff": diff,
+        "status": status,
+        "top-k": "",
+        "sus": "",
+    }
+
+
 def process_one_logdir(
-    dataset_root: Path,
+    bugset_root: Path,
     logdir: Path,
     status_path: Path,
     line_window: int,
@@ -215,53 +295,50 @@ def process_one_logdir(
     if parsed is None:
         return None
 
-    bugset, is_ok, csv_status = parsed
+    bugcase, is_ok, csv_status = parsed
 
-    # Build/SBFL/ERROR failed: only record status from status.txt.
+    resolved = resolve_bugcase_ref(bugset_root, bugcase)
+    if resolved is None:
+        return error_row(bugcase, "", "ERROR(-1)")
+
+    bugset_name, diff_name, case_dir, _diff_path = resolved
+
+    # Build/SBFL/ERROR failed:
+    # only record status from status.txt, but still verify:
+    #   bugset_root/<case>/xxx.sv.diff exists.
     if not is_ok:
         return {
-            "bugset": bugset,
+            "bugset": bugset_name,
+            "diff": diff_name,
             "status": csv_status,
             "top-k": "",
             "sus": "",
         }
 
-    bug_info = load_bug_info(dataset_root, bugset)
+    # OK cases:
+    # load bugset_root/<case>/bug_info.json.
+    bug_info = load_bug_info_from_case_dir(case_dir)
     if bug_info is None:
-        return {
-            "bugset": bugset,
-            "status": "ERROR(-1)",
-            "top-k": "",
-            "sus": "",
-        }
+        return error_row(bugset_name, diff_name, "ERROR(-1)")
 
     result_log_path = logdir / "result.log"
     blocks_path = logdir / "blocks.json"
 
     if not result_log_path.is_file():
         print(f"[WARN] missing result.log: {result_log_path}", file=sys.stderr)
-        return {
-            "bugset": bugset,
-            "status": "ERROR(-1)",
-            "top-k": "",
-            "sus": "",
-        }
+        return error_row(bugset_name, diff_name, "ERROR(-1)")
 
     if not blocks_path.is_file():
         print(f"[WARN] missing blocks.json: {blocks_path}", file=sys.stderr)
-        return {
-            "bugset": bugset,
-            "status": "ERROR(-1)",
-            "top-k": "",
-            "sus": "",
-        }
+        return error_row(bugset_name, diff_name, "ERROR(-1)")
 
     ranked_blocks = parse_block_suspiciousness(result_log_path)
 
     if not ranked_blocks:
         print(f"[WARN] no block suspiciousness found in {result_log_path}", file=sys.stderr)
         return {
-            "bugset": bugset,
+            "bugset": bugset_name,
+            "diff": diff_name,
             "status": "OK",
             "top-k": "over top-0",
             "sus": "",
@@ -277,7 +354,8 @@ def process_one_logdir(
     )
 
     return {
-        "bugset": bugset,
+        "bugset": bugset_name,
+        "diff": diff_name,
         "status": "OK",
         "top-k": top_k,
         "sus": sus,
@@ -286,9 +364,9 @@ def process_one_logdir(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_root", help="dataset directory, e.g. dataset")
+    parser.add_argument("bugset_root", help="bugset directory, e.g. bugset")
     parser.add_argument("logs_root", help="logs directory, e.g. logs")
-    parser.add_argument("-o", "--output", default="sbfl_block_summary.csv")
+    parser.add_argument("-o", "--output", default="sbfl_block_summary.tsv")
     parser.add_argument(
         "--line-window",
         type=int,
@@ -297,12 +375,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    dataset_root = Path(args.dataset_root)
-    logs_root = Path(args.logs_root)
+    bugset_root = Path(args.bugset_root).resolve()
+    logs_root = Path(args.logs_root).resolve()
     output_path = Path(args.output)
 
-    if not dataset_root.is_dir():
-        print(f"[ERROR] dataset root not found: {dataset_root}", file=sys.stderr)
+    if not bugset_root.is_dir():
+        print(f"[ERROR] bugset root not found: {bugset_root}", file=sys.stderr)
         return 1
 
     if not logs_root.is_dir():
@@ -313,7 +391,7 @@ def main() -> int:
 
     for logdir, status_path in iter_status_dirs(logs_root):
         row = process_one_logdir(
-            dataset_root=dataset_root,
+            bugset_root=bugset_root,
             logdir=logdir,
             status_path=status_path,
             line_window=args.line_window,
@@ -323,12 +401,17 @@ def main() -> int:
             rows.append(row)
             print(
                 f"[ROW] {logdir}: "
-                f"{row['bugset']}, status={row['status']}, "
+                f"{row['bugset']}/{row['diff']}, "
+                f"status={row['status']}, "
                 f"{row['top-k']}, {row['sus']}"
             )
 
     with output_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["bugset", "status", "top-k", "sus"])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["bugset", "diff", "status", "top-k", "sus"],
+            delimiter="\t",
+        )
         writer.writeheader()
         writer.writerows(rows)
 
