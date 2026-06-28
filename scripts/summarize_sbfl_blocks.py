@@ -18,8 +18,8 @@ BLOCK_RANK_RE = re.compile(
 )
 
 # Examples:
-#   [OK] 0/ibex_decoder.sv.diff, status=0
-#   [BUILD_FAIL] 0/ibex_decoder.sv.diff, status=1
+#   [OK] 0/ibex_decoder.sv.diff, status=0, elapsed=00:00:01:234
+#   [BUILD_FAIL] 0/ibex_decoder.sv.diff, status=1, elapsed=00:00:05:678
 #   [SBFL_FAIL] 0/ibex_decoder.sv.diff, status=101
 #   [ERROR] 0/ibex_decoder.sv.diff, status=1
 #
@@ -29,6 +29,8 @@ STATUS_RE = re.compile(
     r"^\[(?P<kind>[A-Z_ ]+)\]\s+"
     r"(?P<bugcase>[^,\s]+)"
     r"(?:,\s*status=(?P<status>-?\d+))?"
+    r"(?:,\s*elapsed=(?P<elapsed>\d+:\d{2}:\d{2}:\d{3}))?"
+    r"(?:,\s*elapsed_ms=(?P<elapsed_ms>\d+))?"
     r"\s*$"
 )
 
@@ -41,13 +43,20 @@ def normalize_status_kind(kind: str) -> str:
     return kind.strip().replace(" ", "_")
 
 
-def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
+def format_elapsed_ms(total_ms: int) -> str:
+    hours, remainder = divmod(total_ms, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    seconds, milliseconds = divmod(remainder, 1_000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
+
+
+def parse_status(status_path: Path) -> tuple[str, bool, str, str] | None:
     """
     Return:
-        (bugcase, True,  "OK")
-        (bugcase, False, "BUILD_FAIL(1)")
-        (bugcase, False, "SBFL_FAIL(101)")
-        (bugcase, False, "ERROR(1)")
+        (bugcase, True,  "OK",             elapsed_time)
+        (bugcase, False, "BUILD_FAIL(1)",  elapsed_time)
+        (bugcase, False, "SBFL_FAIL(101)", elapsed_time)
+        (bugcase, False, "ERROR(1)",       elapsed_time)
 
     bugcase example:
         0/ibex_decoder.sv.diff
@@ -62,9 +71,14 @@ def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
     kind = normalize_status_kind(m.group("kind"))
     bugcase = m.group("bugcase")
     status = m.group("status")
+    elapsed_time = m.group("elapsed")
+    elapsed_ms = m.group("elapsed_ms")
+    if elapsed_time is None and elapsed_ms is not None:
+        elapsed_time = format_elapsed_ms(int(elapsed_ms))
+    elapsed_time = elapsed_time or ""
 
     if kind == "OK":
-        return bugcase, True, "OK"
+        return bugcase, True, "OK", elapsed_time
 
     if status is None:
         print(
@@ -73,7 +87,7 @@ def parse_status(status_path: Path) -> tuple[str, bool, str] | None:
         )
         status = "-1"
 
-    return bugcase, False, f"{kind}({status})"
+    return bugcase, False, f"{kind}({status})", elapsed_time
 
 
 def resolve_bugcase_ref(
@@ -274,6 +288,7 @@ def error_row(
     bugset: str,
     diff: str,
     status: str = "ERROR(-1)",
+    elapsed_time: str = "",
 ) -> dict[str, str]:
     return {
         "bugset": bugset,
@@ -281,6 +296,7 @@ def error_row(
         "status": status,
         "top-k": "",
         "sus": "",
+        "elapsed_time": elapsed_time,
     }
 
 
@@ -295,11 +311,11 @@ def process_one_logdir(
     if parsed is None:
         return None
 
-    bugcase, is_ok, csv_status = parsed
+    bugcase, is_ok, csv_status, elapsed_time = parsed
 
     resolved = resolve_bugcase_ref(bugset_root, bugcase)
     if resolved is None:
-        return error_row(bugcase, "", "ERROR(-1)")
+        return error_row(bugcase, "", "ERROR(-1)", elapsed_time)
 
     bugset_name, diff_name, case_dir, _diff_path = resolved
 
@@ -313,24 +329,25 @@ def process_one_logdir(
             "status": csv_status,
             "top-k": "",
             "sus": "",
+            "elapsed_time": elapsed_time,
         }
 
     # OK cases:
     # load bugset_root/<case>/bug_info.json.
     bug_info = load_bug_info_from_case_dir(case_dir)
     if bug_info is None:
-        return error_row(bugset_name, diff_name, "ERROR(-1)")
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
 
     result_log_path = logdir / "result.log"
     blocks_path = logdir / "blocks.json"
 
     if not result_log_path.is_file():
         print(f"[WARN] missing result.log: {result_log_path}", file=sys.stderr)
-        return error_row(bugset_name, diff_name, "ERROR(-1)")
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
 
     if not blocks_path.is_file():
         print(f"[WARN] missing blocks.json: {blocks_path}", file=sys.stderr)
-        return error_row(bugset_name, diff_name, "ERROR(-1)")
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
 
     ranked_blocks = parse_block_suspiciousness(result_log_path)
 
@@ -342,6 +359,7 @@ def process_one_logdir(
             "status": "OK",
             "top-k": "over top-0",
             "sus": "",
+            "elapsed_time": elapsed_time,
         }
 
     block_map = load_blocks(blocks_path)
@@ -359,6 +377,7 @@ def process_one_logdir(
         "status": "OK",
         "top-k": top_k,
         "sus": sus,
+        "elapsed_time": elapsed_time,
     }
 
 
@@ -403,13 +422,21 @@ def main() -> int:
                 f"[ROW] {logdir}: "
                 f"{row['bugset']}/{row['diff']}, "
                 f"status={row['status']}, "
-                f"{row['top-k']}, {row['sus']}"
+                f"{row['top-k']}, {row['sus']}, "
+                f"elapsed={row['elapsed_time']}"
             )
 
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["bugset", "diff", "status", "top-k", "sus"],
+            fieldnames=[
+                "bugset",
+                "diff",
+                "status",
+                "top-k",
+                "sus",
+                "elapsed_time",
+            ],
             delimiter="\t",
         )
         writer.writeheader()

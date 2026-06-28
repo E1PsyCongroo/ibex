@@ -179,7 +179,7 @@ on_interrupt() {
 
 trap on_interrupt INT TERM
 
-printf "case_index\trel_dir\tdiff_name\tcase_dir\tdiff\tstatus\trc\tlogdir\tworkdir\n" >"${SUMMARY_FILE}"
+printf "case_index\trel_dir\tdiff_name\tcase_dir\tdiff\tstatus\trc\telapsed_time\tlogdir\tworkdir\n" >"${SUMMARY_FILE}"
 
 append_result() {
   local idx="$1"
@@ -189,12 +189,13 @@ append_result() {
   local diff="$5"
   local status="$6"
   local rc="$7"
-  local logdir="$8"
-  local workdir="$9"
+  local elapsed_time="$8"
+  local logdir="$9"
+  local workdir="${10}"
 
   {
     flock 200
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
       "${idx}" \
       "${rel_dir}" \
       "${diff_name}" \
@@ -202,6 +203,7 @@ append_result() {
       "${diff}" \
       "${status}" \
       "${rc}" \
+      "${elapsed_time}" \
       "${logdir}" \
       "${workdir}" >>"${SUMMARY_FILE}"
   } 200>"${LOCK_FILE}"
@@ -297,6 +299,17 @@ safe_path_name() {
   echo "${s}"
 }
 
+format_elapsed_ms() {
+  local total_ms="$1"
+  local hours=$((total_ms / 3600000))
+  local minutes=$(((total_ms % 3600000) / 60000))
+  local seconds=$(((total_ms % 60000) / 1000))
+  local milliseconds=$((total_ms % 1000))
+
+  printf "%02d:%02d:%02d:%03d" \
+    "${hours}" "${minutes}" "${seconds}" "${milliseconds}"
+}
+
 finish_case() {
   local idx="$1"
   local rel_dir="$2"
@@ -307,8 +320,16 @@ finish_case() {
   local rc="$7"
   local logdir="$8"
   local workdir="$9"
+  local end_ms
+  local elapsed_ms
+  local elapsed_time
 
-  echo "[${status}] ${rel_dir}/${diff_name}, status=${rc}" | tee -a "${logdir}/status.txt"
+  end_ms="$(date +%s%3N)"
+  elapsed_ms=$((end_ms - case_start_ms))
+  elapsed_time="$(format_elapsed_ms "${elapsed_ms}")"
+
+  echo "[${status}] ${rel_dir}/${diff_name}, status=${rc}, elapsed=${elapsed_time}" | tee -a "${logdir}/status.txt"
+  echo "[TIME] elapsed=${elapsed_time}" >>"${logdir}/run.log"
 
   append_result \
     "${idx}" \
@@ -318,15 +339,18 @@ finish_case() {
     "${diff}" \
     "${status}" \
     "${rc}" \
+    "${elapsed_time}" \
     "${logdir}" \
     "${workdir}"
 
-  echo "[DONE][${idx}] ${rel_dir}/${diff_name}: ${status}, status=${rc}"
+  echo "[DONE][${idx}] ${rel_dir}/${diff_name}: ${status}, status=${rc}, elapsed=${elapsed_time}"
 }
 
 run_one_diff() (
   local idx="$1"
   local diff="$2"
+  local case_start_ms
+  case_start_ms="$(date +%s%3N)"
 
   diff="$(realpath "${diff}")"
 
@@ -436,7 +460,7 @@ run_one_diff() (
       --include-paths "${include_paths}" \
       --top-module ibex_core \
       --top-scope TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core \
-      -- -c 1000000
+      -- -c 10000000
   ) >"${logdir}/sbfl.log" 2>&1
   local sbfl_status=$?
   set -e
