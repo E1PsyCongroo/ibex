@@ -13,13 +13,39 @@ Options:
   -l, --logs <DIR>      Logs root directory, default: ./logs
   -w, --workdir <DIR>   Ibex workdir, default: $IBEX_HOME or current directory
   --keep-workdir        Keep per-case temporary workdirs for debugging
-  -h, --help            Show this help
+
+SBFL binary options:
+  --sbfl-bin <PATH>             SBFL binary path relative to workdir, or absolute
+                                default: build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
+  -f, --fuzzing                 Pass -f/--fuzzing to SBFL, default: enabled
+  --no-fuzzing                  Do not pass -f/--fuzzing
+  -r, --reduce                  Pass -r/--reduce to SBFL, default: disabled
+  -c, --coverage <COVERAGE>     SBFL coverage, default: verilator.branch,verilator.line
+  -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
+  --max-run-timeout <N>         SBFL max run timeout, default: 60
+  --max-iters <N>               SBFL max iterations, default: 50
+  --top-pass <N>                SBFL top pass, default: 100
+  --top-sus <N>                 SBFL top suspicious blocks, default: 50
+  --corpus-input <PATH>         SBFL corpus input, default: examples/sw/benchmarks/coremark/coremark.elf
+  --save-reduce                 Pass --save-reduce to SBFL, default: enabled
+  --no-save-reduce              Do not pass --save-reduce
+  --rtl-path <PATH>             SBFL RTL path, default: <case_workdir>/rtl
+  --include-paths <PATHS>       SBFL include paths, default: Ibex prim/dv_utils include paths in case workdir
+  --top-module <MODULE>         SBFL top module, default: ibex_core
+  --top-scope <SCOPE>           SBFL top scope, default: TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core
+  --metric <METRIC>             SBFL metric, default: ochiai
+  --repeat <N>                  SBFL repeat, default: 1
+  --auto-exit                   Pass --auto-exit to SBFL, default: disabled
+  --                            Remaining args are passed as SBFL EXTRA_ARGS after SBFL's own --
+
+  -h, --help                    Show this help
 
 Examples:
   run_bugset_sbfl.sh --all bugset -j 8
   run_bugset_sbfl.sh --case bugset/dataset_0/0
   run_bugset_sbfl.sh --case bugset/dataset_0/0/ibex_decoder.sv.diff
   run_bugset_sbfl.sh --all dataset -j 4 -t /tmp/ibex_sbfl_tmp -l ./logs
+  run_bugset_sbfl.sh --case bugset/dataset_0/0 --max-iters 20 --top-sus 30 -- -c 10000000
 EOF
 }
 
@@ -31,6 +57,26 @@ TMP_ROOT=""
 LOGS_ROOT="./logs"
 KEEP_WORKDIR=0
 IBEX_HOME="${IBEX_HOME:-$(pwd)}"
+
+SBFL_BIN="build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system"
+SBFL_FUZZING=1
+SBFL_REDUCE=0
+SBFL_COVERAGE="verilator.branch,verilator.line"
+SBFL_STATE="PCState,ArchIntRegState,CSRState"
+SBFL_MAX_RUN_TIMEOUT=60
+SBFL_MAX_ITERS=100
+SBFL_TOP_PASS=100
+SBFL_TOP_SUS=50
+SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
+SBFL_SAVE_REDUCE=1
+SBFL_RTL_PATH=""
+SBFL_INCLUDE_PATHS=""
+SBFL_TOP_MODULE="ibex_core"
+SBFL_TOP_SCOPE="TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core"
+SBFL_METRIC="ochiai"
+SBFL_REPEAT=1
+SBFL_AUTO_EXIT=0
+SBFL_EXTRA_ARGS=(-c 10000000)
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -88,6 +134,147 @@ while [[ "$#" -gt 0 ]]; do
     KEEP_WORKDIR=1
     shift
     ;;
+  --sbfl-bin)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_BIN="$2"
+    shift 2
+    ;;
+  -f | --fuzzing)
+    SBFL_FUZZING=1
+    shift
+    ;;
+  --no-fuzzing)
+    SBFL_FUZZING=0
+    shift
+    ;;
+  -r | --reduce)
+    SBFL_REDUCE=1
+    shift
+    ;;
+  -c | --coverage)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_COVERAGE="$2"
+    shift 2
+    ;;
+  -s | --state)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_STATE="$2"
+    shift 2
+    ;;
+  --max-run-timeout)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_MAX_RUN_TIMEOUT="$2"
+    shift 2
+    ;;
+  --max-iters)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_MAX_ITERS="$2"
+    shift 2
+    ;;
+  --top-pass)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_TOP_PASS="$2"
+    shift 2
+    ;;
+  --top-sus)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_TOP_SUS="$2"
+    shift 2
+    ;;
+  --corpus-input)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_CORPUS_INPUT="$2"
+    shift 2
+    ;;
+  --save-reduce)
+    SBFL_SAVE_REDUCE=1
+    shift
+    ;;
+  --no-save-reduce)
+    SBFL_SAVE_REDUCE=0
+    shift
+    ;;
+  --rtl-path)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_RTL_PATH="$2"
+    shift 2
+    ;;
+  --include-paths)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_INCLUDE_PATHS="$2"
+    shift 2
+    ;;
+  --top-module)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_TOP_MODULE="$2"
+    shift 2
+    ;;
+  --top-scope)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_TOP_SCOPE="$2"
+    shift 2
+    ;;
+  --metric)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_METRIC="$2"
+    shift 2
+    ;;
+  --repeat)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_REPEAT="$2"
+    shift 2
+    ;;
+  --auto-exit)
+    SBFL_AUTO_EXIT=1
+    shift
+    ;;
+  --)
+    shift
+    SBFL_EXTRA_ARGS=("$@")
+    break
+    ;;
   -h | --help)
     usage
     exit 0
@@ -109,6 +296,15 @@ if ! [[ "${JOBS}" =~ ^[0-9]+$ ]] || ((JOBS <= 0)); then
   echo "[ERROR] jobs must be a positive integer: ${JOBS}" >&2
   exit 1
 fi
+
+for pair in   "SBFL_MAX_RUN_TIMEOUT:${SBFL_MAX_RUN_TIMEOUT}"   "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}"   "SBFL_TOP_PASS:${SBFL_TOP_PASS}"   "SBFL_TOP_SUS:${SBFL_TOP_SUS}"   "SBFL_REPEAT:${SBFL_REPEAT}"; do
+  name="${pair%%:*}"
+  value="${pair#*:}"
+  if ! [[ "${value}" =~ ^[0-9]+$ ]] || ((value <= 0)); then
+    echo "[ERROR] ${name} must be a positive integer: ${value}" >&2
+    exit 1
+  fi
+done
 
 if ! command -v realpath >/dev/null 2>&1; then
   echo "[ERROR] realpath not found in PATH" >&2
@@ -148,7 +344,6 @@ esac
 
 BUGSET_ROOT=""
 
-SBFL_BIN="build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system"
 OBJDUMP_BIN="${OBJDUMP_BIN:-riscv32-unknown-elf-objdump}"
 
 FUSESOC_CMD=(
@@ -219,6 +414,7 @@ copy_workdir() {
       --exclude '/build/' \
       --exclude '/logs/' \
       --exclude '/.git/' \
+      --exclude '/.git' \
       --exclude '/target/' \
       "${IBEX_HOME}/" "${dst}/"
   else
@@ -297,6 +493,17 @@ safe_path_name() {
   fi
 
   echo "${s}"
+}
+
+resolve_workdir_path() {
+  local workdir="$1"
+  local path="$2"
+
+  if [[ "${path}" = /* ]]; then
+    echo "${path}"
+  else
+    echo "${workdir}/${path}"
+  fi
 }
 
 format_elapsed_ms() {
@@ -408,8 +615,8 @@ run_one_diff() (
 
   if (
     cd "${workdir}"
-    git apply --whitespace=nowarn "${diff}"
-  ) >"${logdir}/git_apply.log" 2>&1; then
+    patch -p1 --forward --batch --input "${diff}"
+  ) >"${logdir}/patch.log" 2>&1; then
     :
   else
     local rc=$?
@@ -430,37 +637,94 @@ run_one_diff() (
     return 0
   fi
 
-  if [[ ! -x "${workdir}/${SBFL_BIN}" ]]; then
-    echo "[ERROR] SBFL binary not found or not executable: ${workdir}/${SBFL_BIN}" >>"${logdir}/run.log"
+  local sbfl_exe
+  sbfl_exe="$(resolve_workdir_path "${workdir}" "${SBFL_BIN}")"
+
+  if [[ ! -x "${sbfl_exe}" ]]; then
+    echo "[ERROR] SBFL binary not found or not executable: ${sbfl_exe}" >>"${logdir}/run.log"
     finish_case "${idx}" "${rel_dir}" "${diff_name}" "${case_dir}" "${diff}" "SBFL_BIN_MISSING" 1 "${logdir}" "${workdir}"
     return 0
   fi
 
   echo "[RUN] SBFL" >>"${logdir}/run.log"
 
+  local rtl_path
   local include_paths
-  include_paths="${workdir}/vendor/lowrisc_ip/ip/prim/rtl/,${workdir}/vendor/lowrisc_ip/dv/sv/dv_utils/"
+  rtl_path="${SBFL_RTL_PATH:-${workdir}/rtl}"
+  include_paths="${SBFL_INCLUDE_PATHS:-${workdir}/vendor/lowrisc_ip/ip/prim/rtl/,${workdir}/vendor/lowrisc_ip/dv/sv/dv_utils/}"
+
+  local sbfl_args=()
+
+  if [[ "${SBFL_FUZZING}" -eq 1 ]]; then
+    sbfl_args+=(-f)
+  fi
+
+  if [[ "${SBFL_REDUCE}" -eq 1 ]]; then
+    sbfl_args+=(-r)
+  fi
+
+  sbfl_args+=(
+    -c "${SBFL_COVERAGE}"
+    -s "${SBFL_STATE}"
+    --max-run-timeout "${SBFL_MAX_RUN_TIMEOUT}"
+    --max-iters "${SBFL_MAX_ITERS}"
+    --top-pass "${SBFL_TOP_PASS}"
+    --top-sus "${SBFL_TOP_SUS}"
+    --corpus-input "${SBFL_CORPUS_INPUT}"
+    --output "${logdir}"
+  )
+
+  if [[ "${SBFL_SAVE_REDUCE}" -eq 1 ]]; then
+    sbfl_args+=(--save-reduce)
+  fi
+
+  if [[ -n "${rtl_path}" ]]; then
+    sbfl_args+=(--rtl-path "${rtl_path}")
+  fi
+
+  if [[ -n "${include_paths}" ]]; then
+    sbfl_args+=(--include-paths "${include_paths}")
+  fi
+
+  if [[ -n "${SBFL_TOP_MODULE}" ]]; then
+    sbfl_args+=(--top-module "${SBFL_TOP_MODULE}")
+  fi
+
+  if [[ -n "${SBFL_TOP_SCOPE}" ]]; then
+    sbfl_args+=(--top-scope "${SBFL_TOP_SCOPE}")
+  fi
+
+  if [[ -n "${SBFL_METRIC}" ]]; then
+    sbfl_args+=(--metric "${SBFL_METRIC}")
+  fi
+
+  if [[ -n "${SBFL_REPEAT}" ]]; then
+    sbfl_args+=(--repeat "${SBFL_REPEAT}")
+  fi
+
+  if [[ "${SBFL_AUTO_EXIT}" -eq 1 ]]; then
+    sbfl_args+=(--auto-exit)
+  fi
+
+  {
+    printf '[RUN]'
+    printf ' %q' "${sbfl_exe}" "${sbfl_args[@]}"
+    if ((${#SBFL_EXTRA_ARGS[@]} > 0)); then
+      printf ' --'
+      printf ' %q' "${SBFL_EXTRA_ARGS[@]}"
+    fi
+    printf '\n'
+  } >>"${logdir}/run.log"
 
   set +e
   (
     cd "${workdir}"
 
-    "${SBFL_BIN}" \
-      -f \
-      -r \
-      -c "verilator.branch,verilator.line" \
-      --max-run-timeout 60 \
-      --max-iters 50 \
-      --top-pass 100 \
-      --top-sus 50 \
-      --corpus-input examples/sw/benchmarks/coremark/coremark.elf \
-      --output "${logdir}" \
-      --save-reduce \
-      --rtl-path "${workdir}/rtl" \
-      --include-paths "${include_paths}" \
-      --top-module ibex_core \
-      --top-scope TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core \
-      -- -c 10000000
+    if ((${#SBFL_EXTRA_ARGS[@]} > 0)); then
+      "${sbfl_exe}" "${sbfl_args[@]}" -- "${SBFL_EXTRA_ARGS[@]}"
+    else
+      "${sbfl_exe}" "${sbfl_args[@]}"
+    fi
   ) >"${logdir}/sbfl.log" 2>&1
   local sbfl_status=$?
   set -e
