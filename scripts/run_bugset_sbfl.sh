@@ -13,6 +13,7 @@ Options:
   -l, --logs <DIR>      Logs root directory, default: ./logs
   -w, --workdir <DIR>   Ibex workdir, default: $IBEX_HOME or current directory
   --keep-workdir        Keep per-case temporary workdirs for debugging
+  --disassemble         Disassemble ELF files under each logdir after SBFL, default: disabled
 
 SBFL binary options:
   --sbfl-bin <PATH>             SBFL binary path relative to workdir, or absolute
@@ -24,7 +25,7 @@ SBFL binary options:
   -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
   --max-run-timeout <N>         SBFL max run timeout, default: 60
   --max-iters <N>               SBFL max iterations, default: 50
-  --top-pass <N>                SBFL top pass, default: 100
+  --top-pass <N>                SBFL top pass, default: 50
   --top-sus <N>                 SBFL top suspicious blocks, default: 50
   --corpus-input <PATH>         SBFL corpus input, default: examples/sw/benchmarks/coremark/coremark.elf
   --save-reduce                 Pass --save-reduce to SBFL, default: enabled
@@ -46,6 +47,7 @@ Examples:
   run_bugset_sbfl.sh --case bugset/dataset_0/0/ibex_decoder.sv.diff
   run_bugset_sbfl.sh --all dataset -j 4 -t /tmp/ibex_sbfl_tmp -l ./logs
   run_bugset_sbfl.sh --case bugset/dataset_0/0 --max-iters 20 --top-sus 30 -- -c 10000000
+  run_bugset_sbfl.sh --all bugset -j 8 --disassemble
 EOF
 }
 
@@ -56,6 +58,7 @@ JOBS="$(nproc 2>/dev/null || echo 1)"
 TMP_ROOT=""
 LOGS_ROOT="./logs"
 KEEP_WORKDIR=0
+DO_DISASSEMBLE=0
 IBEX_HOME="${IBEX_HOME:-$(pwd)}"
 
 SBFL_BIN="build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system"
@@ -64,8 +67,8 @@ SBFL_REDUCE=0
 SBFL_COVERAGE="verilator.branch,verilator.line"
 SBFL_STATE="PCState,ArchIntRegState,CSRState"
 SBFL_MAX_RUN_TIMEOUT=60
-SBFL_MAX_ITERS=100
-SBFL_TOP_PASS=100
+SBFL_MAX_ITERS=50
+SBFL_TOP_PASS=50
 SBFL_TOP_SUS=50
 SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
 SBFL_SAVE_REDUCE=1
@@ -132,6 +135,10 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --keep-workdir)
     KEEP_WORKDIR=1
+    shift
+    ;;
+  --disassemble)
+    DO_DISASSEMBLE=1
     shift
     ;;
   --sbfl-bin)
@@ -297,7 +304,12 @@ if ! [[ "${JOBS}" =~ ^[0-9]+$ ]] || ((JOBS <= 0)); then
   exit 1
 fi
 
-for pair in   "SBFL_MAX_RUN_TIMEOUT:${SBFL_MAX_RUN_TIMEOUT}"   "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}"   "SBFL_TOP_PASS:${SBFL_TOP_PASS}"   "SBFL_TOP_SUS:${SBFL_TOP_SUS}"   "SBFL_REPEAT:${SBFL_REPEAT}"; do
+for pair in \
+  "SBFL_MAX_RUN_TIMEOUT:${SBFL_MAX_RUN_TIMEOUT}" \
+  "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}" \
+  "SBFL_TOP_PASS:${SBFL_TOP_PASS}" \
+  "SBFL_TOP_SUS:${SBFL_TOP_SUS}" \
+  "SBFL_REPEAT:${SBFL_REPEAT}"; do
   name="${pair%%:*}"
   value="${pair#*:}"
   if ! [[ "${value}" =~ ^[0-9]+$ ]] || ((value <= 0)); then
@@ -729,8 +741,12 @@ run_one_diff() (
   local sbfl_status=$?
   set -e
 
-  echo "[POST] disassemble ELF files under ${logdir}" >>"${logdir}/run.log"
-  disassemble_elfs "${logdir}" >"${logdir}/objdump.log" 2>&1 || true
+  if [[ "${DO_DISASSEMBLE}" -eq 1 ]]; then
+    echo "[POST] disassemble ELF files under ${logdir}" >>"${logdir}/run.log"
+    disassemble_elfs "${logdir}" >"${logdir}/objdump.log" 2>&1 || true
+  else
+    echo "[POST] skip disassemble ELF files (--disassemble not set)" >>"${logdir}/run.log"
+  fi
 
   if [[ "${sbfl_status}" -ne 0 ]]; then
     finish_case "${idx}" "${rel_dir}" "${diff_name}" "${case_dir}" "${diff}" "SBFL_FAIL" "${sbfl_status}" "${logdir}" "${workdir}"
@@ -763,12 +779,13 @@ run_all_cases() {
     return 0
   fi
 
-  echo "[INFO] diffs  : ${#DIFFS[@]}"
-  echo "[INFO] jobs   : ${JOBS}"
-  echo "[INFO] logs   : ${LOGS_ROOT}"
-  echo "[INFO] tmp    : ${RUN_TMP}"
-  echo "[INFO] summary: ${SUMMARY_FILE}"
+  echo "[INFO] diffs       : ${#DIFFS[@]}"
+  echo "[INFO] jobs        : ${JOBS}"
+  echo "[INFO] logs        : ${LOGS_ROOT}"
+  echo "[INFO] tmp         : ${RUN_TMP}"
+  echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
+  echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
 
   local running=0
 
@@ -792,11 +809,12 @@ run_all_cases() {
 run_single_case() {
   local target="$1"
 
-  echo "[INFO] jobs   : 1"
-  echo "[INFO] logs   : ${LOGS_ROOT}"
-  echo "[INFO] tmp    : ${RUN_TMP}"
-  echo "[INFO] summary: ${SUMMARY_FILE}"
+  echo "[INFO] jobs        : 1"
+  echo "[INFO] logs        : ${LOGS_ROOT}"
+  echo "[INFO] tmp         : ${RUN_TMP}"
+  echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
+  echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
 
   if [[ -f "${target}" && "${target}" == *.sv.diff ]]; then
     BUGSET_ROOT="$(dirname "$(realpath "${target}")")"

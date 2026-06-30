@@ -7,6 +7,8 @@ import csv
 import json
 import re
 import sys
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,23 @@ STATUS_RE = re.compile(
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def read_fuzzing_time(logdir: Path) -> str:
+    """
+    Read SBFL fuzzing CPU time from:
+        <logdir>/fuzzing_time.txt
+
+    The file is produced by Rust with `{fuzzing_elapsed:?}`, so keep the raw
+    Duration debug string, for example: `1.234s`, `123ms`, `42µs`, or `0ns`.
+    Missing file is allowed and represented as an empty field.
+    """
+    fuzzing_time_path = logdir / "fuzzing_time.txt"
+
+    if not fuzzing_time_path.is_file():
+        return ""
+
+    return read_text(fuzzing_time_path).strip()
 
 
 def normalize_status_kind(kind: str) -> str:
@@ -236,6 +255,85 @@ def line_set_with_window(lines: list[int], window: int) -> set[int]:
     return result
 
 
+def sus_group_key(sus: str) -> tuple[str, Decimal | str]:
+    """
+    Normalize suspiciousness for tie grouping.
+
+    Numeric strings such as "0.10" and "0.100000" are treated as the
+    same suspiciousness value. If parsing fails, fall back to exact string.
+    """
+    sus = str(sus).strip()
+    try:
+        return "num", Decimal(sus)
+    except InvalidOperation:
+        return "str", sus
+
+
+def format_avg_rank(rank: Fraction) -> str:
+    """Format averaged rank for the top-k column."""
+    if rank.denominator == 1:
+        return str(rank.numerator)
+
+    # Most ties produce .5. Keep a compact decimal representation for TSV.
+    value = rank.numerator / rank.denominator
+    return f"{value:.6f}".rstrip("0").rstrip(".")
+
+
+def iter_sus_tie_groups(
+    ranked_blocks: list[dict[str, Any]],
+) -> list[tuple[list[dict[str, Any]], Fraction]]:
+    """
+    Group consecutive blocks with the same suspiciousness.
+
+    Each returned group carries its average rank. For example, if top-1, top-2
+    and top-3 have the same sus, all three are assigned rank (1+2+3)/3 = 2.
+    """
+    groups: list[tuple[list[dict[str, Any]], Fraction]] = []
+    current_group: list[dict[str, Any]] = []
+    current_key: tuple[str, Decimal | str] | None = None
+
+    for item in sorted(ranked_blocks, key=lambda x: int(x["rank"])):
+        key = sus_group_key(str(item["sus"]))
+
+        if current_group and key != current_key:
+            rank_sum = sum(int(x["rank"]) for x in current_group)
+            groups.append((current_group, Fraction(rank_sum, len(current_group))))
+            current_group = []
+
+        current_group.append(item)
+        current_key = key
+
+    if current_group:
+        rank_sum = sum(int(x["rank"]) for x in current_group)
+        groups.append((current_group, Fraction(rank_sum, len(current_group))))
+
+    return groups
+
+
+def is_bug_block(
+    item: dict[str, Any],
+    block_map: dict[tuple[str, int], dict[str, Any]],
+    module_name: str,
+    scope_name: str,
+    target_lines: set[int],
+) -> bool:
+    scope = str(item["scope"])
+    bid = int(item["bid"])
+
+    block = block_map.get((scope, bid))
+    if block is None:
+        return False
+
+    if str(block.get("scope", "")) != scope_name:
+        return False
+
+    if str(block.get("module", "")) != module_name:
+        return False
+
+    block_lines = {int(x) for x in block.get("lines", [])}
+    return bool(block_lines & target_lines)
+
+
 def find_bug_rank(
     bug_info: dict[str, Any],
     ranked_blocks: list[dict[str, Any]],
@@ -247,37 +345,82 @@ def find_bug_rank(
         ("top-k", sus)
     or:
         ("over top-n", "")
+
+    Tie rule:
+        Blocks with the same suspiciousness share the average of their printed
+        ranks. For example, top-1 and top-2 with the same sus are both top-1.5.
+
+    Degenerate rule:
+        If all printed n blocks have the same suspiciousness and there are only
+        these n blocks in the ranking, treat the result as "over top-n".
+
+    Boundary tie rule:
+        If a bug block has the same suspiciousness as top-n, but the bug block
+        itself is not the printed top-n item, treat it as "over top-n".
+
+        Example:
+            top-49 sus=0.1
+            top-50 sus=0.1
+
+        If the bug block is top-49, return:
+            over top-50
+
+        If the bug block is exactly top-50, return:
+            top-50
     """
     module_name = str(bug_info["module_name"])
     scope_name = str(bug_info["scope_name"])
     modify_lines = [int(x) for x in bug_info["modify_line"]]
 
     target_lines = line_set_with_window(modify_lines, line_window)
-
-    for item in ranked_blocks:
-        rank = int(item["rank"])
-        scope = str(item["scope"])
-        bid = int(item["bid"])
-        sus = str(item["sus"])
-
-        block = block_map.get((scope, bid))
-        if block is None:
-            continue
-
-        if str(block.get("scope", "")) != scope_name:
-            continue
-
-        if str(block.get("module", "")) != module_name:
-            continue
-
-        block_lines = {int(x) for x in block.get("lines", [])}
-
-        if block_lines & target_lines:
-            return f"top-{rank}", sus
-
     top_n = len(ranked_blocks)
-    return f"over top-{top_n}", ""
 
+    tie_groups = iter_sus_tie_groups(ranked_blocks)
+
+    # If all n printed blocks have exactly the same suspiciousness, this ranking
+    # carries no useful ordering information, so do not count it as top-(n+1)/2.
+    if top_n > 0 and len(tie_groups) == 1:
+        return f"over top-{top_n}", ""
+
+    # Suspiciousness of the printed boundary item: top-n.
+    #
+    # If a tie reaches this boundary, then any earlier item in the same tie group
+    # may actually be tied with unseen items beyond top-n. Therefore, those items
+    # should not be counted as top-k.
+    top_n_item = max(ranked_blocks, key=lambda item: int(item["rank"]))
+    top_n_sus_key = sus_group_key(str(top_n_item["sus"]))
+
+    for group, avg_rank in tie_groups:
+        group_sus_key = sus_group_key(str(group[0]["sus"]))
+        group_has_top_n_sus = group_sus_key == top_n_sus_key
+
+        for item in group:
+            if not is_bug_block(
+                item=item,
+                block_map=block_map,
+                module_name=module_name,
+                scope_name=scope_name,
+                target_lines=target_lines,
+            ):
+                continue
+
+            rank = int(item["rank"])
+            sus = str(item["sus"])
+
+            # New rule:
+            # If this block has the same sus as top-n, but it is not the printed
+            # top-n item, treat it as over top-n.
+            if group_has_top_n_sus and rank != top_n:
+                return f"over top-{top_n}", ""
+
+            # If the bug block is exactly the printed top-n item, keep it as top-n.
+            # Do not average it with previous tied boundary items.
+            if group_has_top_n_sus and rank == top_n:
+                return f"top-{top_n}", sus
+
+            return f"top-{format_avg_rank(avg_rank)}", sus
+
+    return f"over top-{top_n}", ""
 
 def iter_status_dirs(logs_root: Path):
     for status_path in sorted(logs_root.rglob("status.txt")):
@@ -289,6 +432,7 @@ def error_row(
     diff: str,
     status: str = "ERROR(-1)",
     elapsed_time: str = "",
+    fuzzing_time: str = "",
 ) -> dict[str, str]:
     return {
         "bugset": bugset,
@@ -297,6 +441,7 @@ def error_row(
         "top-k": "",
         "sus": "",
         "elapsed_time": elapsed_time,
+        "fuzzing_time": fuzzing_time,
     }
 
 
@@ -312,10 +457,11 @@ def process_one_logdir(
         return None
 
     bugcase, is_ok, csv_status, elapsed_time = parsed
+    fuzzing_time = read_fuzzing_time(logdir)
 
     resolved = resolve_bugcase_ref(bugset_root, bugcase)
     if resolved is None:
-        return error_row(bugcase, "", "ERROR(-1)", elapsed_time)
+        return error_row(bugcase, "", "ERROR(-1)", elapsed_time, fuzzing_time)
 
     bugset_name, diff_name, case_dir, _diff_path = resolved
 
@@ -330,24 +476,25 @@ def process_one_logdir(
             "top-k": "",
             "sus": "",
             "elapsed_time": elapsed_time,
+            "fuzzing_time": fuzzing_time,
         }
 
     # OK cases:
     # load bugset_root/<case>/bug_info.json.
     bug_info = load_bug_info_from_case_dir(case_dir)
     if bug_info is None:
-        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time, fuzzing_time)
 
     result_log_path = logdir / "result.log"
     blocks_path = logdir / "blocks.json"
 
     if not result_log_path.is_file():
         print(f"[WARN] missing result.log: {result_log_path}", file=sys.stderr)
-        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time, fuzzing_time)
 
     if not blocks_path.is_file():
         print(f"[WARN] missing blocks.json: {blocks_path}", file=sys.stderr)
-        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time)
+        return error_row(bugset_name, diff_name, "ERROR(-1)", elapsed_time, fuzzing_time)
 
     ranked_blocks = parse_block_suspiciousness(result_log_path)
 
@@ -360,6 +507,7 @@ def process_one_logdir(
             "top-k": "over top-0",
             "sus": "",
             "elapsed_time": elapsed_time,
+            "fuzzing_time": fuzzing_time,
         }
 
     block_map = load_blocks(blocks_path)
@@ -378,6 +526,7 @@ def process_one_logdir(
         "top-k": top_k,
         "sus": sus,
         "elapsed_time": elapsed_time,
+        "fuzzing_time": fuzzing_time,
     }
 
 
@@ -423,7 +572,8 @@ def main() -> int:
                 f"{row['bugset']}/{row['diff']}, "
                 f"status={row['status']}, "
                 f"{row['top-k']}, {row['sus']}, "
-                f"elapsed={row['elapsed_time']}"
+                f"elapsed={row['elapsed_time']}, "
+                f"fuzzing_time={row['fuzzing_time']}"
             )
 
     with output_path.open("w", newline="", encoding="utf-8") as f:
@@ -436,6 +586,7 @@ def main() -> int:
                 "top-k",
                 "sus",
                 "elapsed_time",
+                "fuzzing_time",
             ],
             delimiter="\t",
         )
