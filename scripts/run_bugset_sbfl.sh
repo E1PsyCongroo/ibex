@@ -19,7 +19,6 @@ SBFL binary options:
   --sbfl-bin <PATH>             SBFL binary path relative to workdir, or absolute
                                 default: build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
   -f, --fuzzing                 Pass -f/--fuzzing to SBFL, default: enabled
-  --no-fuzzing                  Do not pass -f/--fuzzing
   -r, --reduce                  Pass -r/--reduce to SBFL, default: disabled
   -c, --coverage <COVERAGE>     SBFL coverage, default: verilator.branch,verilator.line
   -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
@@ -29,7 +28,9 @@ SBFL binary options:
   --top-sus <N>                 SBFL top suspicious blocks, default: 50
   --corpus-input <PATH>         SBFL corpus input, default: examples/sw/benchmarks/coremark/coremark.elf
   --save-reduce                 Pass --save-reduce to SBFL, default: enabled
-  --no-save-reduce              Do not pass --save-reduce
+  --save-trace                  Pass --save-trace to SBFL, default: disabled
+  --tracker-window-size <N>     SBFL tracker window size, default: 20
+  --mutator-window-size <N>     SBFL mutator window size, default: 20
   --rtl-path <PATH>             SBFL RTL path, default: <case_workdir>/rtl
   --include-paths <PATHS>       SBFL include paths, default: Ibex prim/dv_utils include paths in case workdir
   --top-module <MODULE>         SBFL top module, default: ibex_core
@@ -72,6 +73,9 @@ SBFL_TOP_PASS=50
 SBFL_TOP_SUS=50
 SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
 SBFL_SAVE_REDUCE=1
+SBFL_SAVE_TRACE=0
+SBFL_TRACKER_WINDOW_SIZE=20
+SBFL_MUTATOR_WINDOW_SIZE=20
 SBFL_RTL_PATH=""
 SBFL_INCLUDE_PATHS=""
 SBFL_TOP_MODULE="ibex_core"
@@ -153,10 +157,6 @@ while [[ "$#" -gt 0 ]]; do
     SBFL_FUZZING=1
     shift
     ;;
-  --no-fuzzing)
-    SBFL_FUZZING=0
-    shift
-    ;;
   -r | --reduce)
     SBFL_REDUCE=1
     shift
@@ -221,9 +221,25 @@ while [[ "$#" -gt 0 ]]; do
     SBFL_SAVE_REDUCE=1
     shift
     ;;
-  --no-save-reduce)
-    SBFL_SAVE_REDUCE=0
+  --save-trace)
+    SBFL_SAVE_TRACE=1
     shift
+    ;;
+  --tracker-window-size)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_TRACKER_WINDOW_SIZE="$2"
+    shift 2
+    ;;
+  --mutator-window-size)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_MUTATOR_WINDOW_SIZE="$2"
+    shift 2
     ;;
   --rtl-path)
     [[ "$#" -ge 2 ]] || {
@@ -309,6 +325,8 @@ for pair in \
   "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}" \
   "SBFL_TOP_PASS:${SBFL_TOP_PASS}" \
   "SBFL_TOP_SUS:${SBFL_TOP_SUS}" \
+  "SBFL_TRACKER_WINDOW_SIZE:${SBFL_TRACKER_WINDOW_SIZE}" \
+  "SBFL_MUTATOR_WINDOW_SIZE:${SBFL_MUTATOR_WINDOW_SIZE}" \
   "SBFL_REPEAT:${SBFL_REPEAT}"; do
   name="${pair%%:*}"
   value="${pair#*:}"
@@ -682,12 +700,18 @@ run_one_diff() (
     --max-iters "${SBFL_MAX_ITERS}"
     --top-pass "${SBFL_TOP_PASS}"
     --top-sus "${SBFL_TOP_SUS}"
+    --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
+    --mutator-window-size "${SBFL_MUTATOR_WINDOW_SIZE}"
     --corpus-input "${SBFL_CORPUS_INPUT}"
     --output "${logdir}"
   )
 
   if [[ "${SBFL_SAVE_REDUCE}" -eq 1 ]]; then
     sbfl_args+=(--save-reduce)
+  fi
+
+  if [[ "${SBFL_SAVE_TRACE}" -eq 1 ]]; then
+    sbfl_args+=(--save-trace)
   fi
 
   if [[ -n "${rtl_path}" ]]; then
@@ -786,6 +810,9 @@ run_all_cases() {
   echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
+  echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
+  echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
 
   local running=0
 
@@ -815,6 +842,9 @@ run_single_case() {
   echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
+  echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
+  echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
 
   if [[ -f "${target}" && "${target}" == *.sv.diff ]]; then
     BUGSET_ROOT="$(dirname "$(realpath "${target}")")"
