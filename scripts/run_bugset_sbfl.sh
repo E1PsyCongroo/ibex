@@ -22,6 +22,7 @@ SBFL binary options:
   -r, --reduce                  Pass -r/--reduce to SBFL, default: disabled
   -c, --coverage <COVERAGE>     SBFL coverage, default: verilator.branch,verilator.line
   -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
+  --base-mutator                Use baseline random mutator instead of last-window mutator, default: disabled
   --max-run-timeout <N>         SBFL max run timeout, default: 60
   --max-iters <N>               SBFL max iterations, default: 50
   --top-pass <N>                SBFL top pass, default: 50
@@ -67,6 +68,7 @@ SBFL_FUZZING=1
 SBFL_REDUCE=0
 SBFL_COVERAGE="verilator.branch,verilator.line"
 SBFL_STATE="PCState,ArchIntRegState,CSRState"
+SBFL_BASE_MUTATOR=0
 SBFL_MAX_RUN_TIMEOUT=60
 SBFL_MAX_ITERS=50
 SBFL_TOP_PASS=50
@@ -176,6 +178,10 @@ while [[ "$#" -gt 0 ]]; do
     }
     SBFL_STATE="$2"
     shift 2
+    ;;
+  --base-mutator)
+    SBFL_BASE_MUTATOR=1
+    shift
     ;;
   --max-run-timeout)
     [[ "$#" -ge 2 ]] || {
@@ -705,6 +711,10 @@ run_one_diff() (
     --corpus-input "${SBFL_CORPUS_INPUT}"
     --output "${logdir}"
   )
+
+  if [[ "${SBFL_BASE_MUTATOR}" -eq 1 ]]; then
+    sbfl_args+=(--base-mutator)
+  fi
 
   if [[ "${SBFL_SAVE_REDUCE}" -eq 1 ]]; then
     sbfl_args+=(--save-reduce)
