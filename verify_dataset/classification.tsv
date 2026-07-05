@@ -1,0 +1,127 @@
+bug_id	module	instruction_type	pipeline_stage	impact
+0	ibex_decoder	RV32I-Load（LB/LBU）	ID/EX（译码）	字节加载被错误译成字访问
+1	ibex_id_stage	RV32I-Load/Store	ID/EX（发射/控制）	LSU 请求允许条件由与变或
+2	ibex_multdiv_fast	RV32M-Div/Rem	EX（乘除法单元）	无符号被除数错误取自操作数 B
+3	ibex_load_store_unit	RV32I-Load/Store	LSU/MEM（数据接口）	总线写使能错误取请求信号
+4	ibex_wb_stage	通用（寄存器写回类）	WB（写回）	无独立 WB 配置下 EX 与 LSU 写回数据槽冲突
+5	ibex_id_stage	通用（流水线冒险）	ID/EX（停顿控制）	加载冒险与存储器停顿条件错误相与
+6	ibex_id_stage	通用（流水线冒险）	ID/EX（停顿控制）	分支停顿与 ALU 停顿条件错误相与
+7	ibex_multdiv_fast	RV32M-Div/Rem	EX（乘除法单元）	除法状态机使用下一拍计数值判断结束
+8	ibex_if_stage	RV32I-Control-flow	IF（重定向）	取指重定向的两个互斥来源错误相与
+9	ibex_multdiv_fast	RV32M-Div/Rem	EX（乘除法单元）	除法迭代结束计数 off-by-one
+11	ibex_fetch_fifo	通用（含 RVC）	IF（取指 FIFO）	FIFO 弹出条件错误使用输入有效
+12	ibex_core	通用（RVFI 观测）	退休/RVFI（跨阶段）	RVFI 有效条件由与变或
+13	ibex_id_stage	通用（流水线冒险）	ID/EX（停顿控制）	存储器与乘除法停顿条件错误相与
+14	ibex_prefetch_buffer	RV32I-Control-flow	IF（预取/重定向）	分支重定向地址错误使用输出地址
+15	ibex_ex_block	RV32M-Mul/Div	EX（执行块）	乘除法中间寄存器 1 错取寄存器 0
+16	ibex_alu	RV32I-ALU-Logical	EX（ALU）	逻辑运算 B 操作数错误取 A
+17	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 末项写使能索引越界
+18	ibex_decoder	RV32I-Load（LB/LBU）	ID/EX（译码）	字节加载被错误译成半字访问
+19	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	未完成请求跟踪错误使用 next-state 请求
+20	ibex_multdiv_fast	RV32M-Mul	EX（乘法单元）	高半乘积累加值错误取另一中间寄存器
+23	ibex_load_store_unit	RV32I-Load（LH/LHU）	LSU/MEM（加载对齐）	半字加载错误选择字数据
+24	ibex_core	通用（RVFI 观测）	退休/RVFI（跨阶段）	RVFI 写回数据数组索引越界
+25	ibex_ex_block	RV32M-Mul/Div	EX（执行块）	乘法和除法选择信号错误相与
+26	ibex_multdiv_fast	RV32M-Mul	EX（乘法单元）	无符号乘法操作数被强制按有符号处理
+27	ibex_id_stage	RV32I-Branch	ID/EX（分支控制）	无固定时序配置下分支结果被强制为不跳转
+28	ibex_decoder	RV32I-Store（SH）	ID/EX（译码）	半字存储被错误译成字访问
+29	ibex_load_store_unit	RV32I-Load	LSU/MEM（异常）	加载错误缺少响应有效和读事务联合限定
+30	ibex_prefetch_buffer	RV32I-Control-flow	IF（预取/重定向）	取指地址选择错误使用请求信号代替分支信号
+32	ibex_alu	RV32I-ALU-Arithmetic/Compare	EX（ALU 加法器）	B 操作数求反被取消，破坏减法和比较
+33	ibex_if_stage	通用（复位后首条指令）	IF（PC 生成）	启动地址低字节常量错误
+35	ibex_decoder	RV32I-ALU-Immediate	ID/EX（译码）	OP-IMM 指令寄存器写使能被关闭
+36	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	只在错误响应时记录已授权请求
+37	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	未完成请求新旧状态错误相与
+39	ibex_multdiv_fast	RV32M-Div/Rem	EX（乘除法单元）	除法结果错误取另一中间寄存器
+40	ibex_id_stage	RV32M-Mul/Div	ID/EX（多周期控制）	未完成乘除法时错误开启寄存器写回
+41	ibex_load_store_unit	RV32I-Load	LSU/MEM（加载对齐）	绕过对齐及符号扩展直接输出总线数据
+42	ibex_load_store_unit	RV32I-Store（SB）	LSU/MEM（字节使能）	偏移为 2 的字节存储错误写两个字节
+44	ibex_id_stage	RV32M-Mul/Div	ID/EX（发射/控制）	乘法或除法使能错误相与
+46	ibex_decoder	RV32M-Div/Rem	ID/EX（译码）	支持 M 扩展时反而把除法/余数判为非法
+47	ibex_alu	RV32I-ALU-Logical（OR）	EX（ALU）	OR 结果 case 标签错成 AND
+48	ibex_compressed_decoder	RVC（C.ADD）	ID/EX（压缩译码）	C.ADD 展开后的 funct3 错误
+49	ibex_ex_block	RV32M-Mul/Div	EX（执行块）	中间寄存器 0 错取中间寄存器 1
+50	ibex_alu	RV32I-ALU-Compare/Branch	EX（ALU 比较器）	有符号大于等于错误检查加法器 bit 18
+51	ibex_fetch_fifo	通用（含 RVC）	IF（取指 PC）	PC 增量中加入错误的输出地址项
+54	ibex_decoder	RV32I-Branch	ID/EX（译码）	分支指令标志被关闭
+56	ibex_controller	通用（流水线冒险）	ID/EX（控制器）	ID 接收就绪条件由与变或
+57	ibex_controller	通用（取指异常）	ID/EX（异常控制）	任意有效指令均被当作取指错误
+58	ibex_id_stage	通用（流水线冒险）	ID/EX（停顿控制）	乘除法停顿项被重复的加载冒险项替换
+59	ibex_multdiv_fast	RV32M-Div/Rem	EX（除法单元）	余数初始化错误取被除数 bit 7
+60	ibex_if_stage	通用（取指异常）	IF（完整性检查）	关闭存储器 ECC 时仍恒报完整性错误
+61	ibex_fetch_fifo	通用（含 RVC）	IF（取指 FIFO）	FIFO 弹出条件错误使用输入有效
+62	ibex_ex_block	RV32M-Mul/Div	EX（执行块）	两个中间结果被同时驱动到槽 0
+64	ibex_alu	RV32I-ALU-Shift	EX（移位器）	移位结果反序索引由减号变加号并越界
+65	ibex_decoder	RV32I-Store	ID/EX（译码）	存储指令写使能被关闭
+67	ibex_core	通用（寄存器写回类）	WB（寄存器接口）	无 ECC 配置下写回数据错误取源寄存器 B
+68	ibex_multdiv_fast	RV32M-Mul	EX（乘法单元）	无符号乘法操作数 A 被强制按有符号处理
+69	ibex_decoder	RV32I-System/CSR	ID/EX（译码）	CSR 非法标志默认置位
+70	ibex_fetch_fifo	通用（含 RVC）	IF（取指 FIFO）	FIFO 弹出握手条件由与变或
+71	ibex_multdiv_fast	RV32M-Div/Rem	EX（除法控制）	除法完成有效信号默认置位
+72	ibex_decoder	RV32I-Jump（JAL）	ID/EX（立即数译码）	J 型立即数 bit 11 错取指令 bit 2
+73	ibex_fetch_fifo	RVC	IF（取指 PC）	半字地址选择错误检查 bit 0
+75	ibex_controller	RV32I-System/Exception	ID/EX（异常控制）	异常请求与 flush 状态限定由与变或
+76	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 数据错误写入取指地址
+77	ibex_controller	通用（流水线冒险）	ID/EX/WB（停顿控制）	ID 与 WB 停顿错误相与
+80	ibex_core	通用（RVFI 观测）	退休/RVFI（跨阶段）	RVFI 目的寄存器地址数组索引越界
+81	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 末项有效状态读取越界索引
+82	ibex_controller	RV32I-Branch/Jump	ID/EX（控制流）	无分支预测器时禁止 PC 重定向
+84	ibex_multdiv_fast	RV32M-Mul	EX（乘法单元）	乘法输出错误取组合中间量
+85	ibex_alu	RV32I-ALU-Compare/Branch	EX（ALU 比较器）	大于等于判定极性反转
+88	ibex_controller	RV32I-System（EBREAK）	ID/EX（异常控制）	任意有效指令均被当作 EBREAK
+89	ibex_decoder	RV32I-ALU-Shift（SRAI）	ID/EX（译码）	合法 SRAI 被无条件判为非法
+91	ibex_alu	RV32I-ALU-Logical（AND）	EX（ALU）	AND 选择条件使用不可能同时满足的相与
+94	ibex_fetch_fifo	RVC	IF（取指拼接）	跨字 32 位指令错误检查 FIFO 项 0
+95	ibex_load_store_unit	RV32I-Load（LB/LBU）	LSU/MEM（加载对齐）	字节加载错误选择字数据
+96	ibex_decoder	RV32M-Div/Rem	ID/EX（译码）	除法使能形成自引用
+97	ibex_prefetch_buffer	通用（全部指令）	IF（预取流控）	FIFO 就绪归约逻辑由或变与
+98	ibex_if_stage	通用（全部指令）	IF→ID（流水寄存器）	新指令握手条件由与变或
+100	ibex_if_stage	通用（含 RVC）	IF（取指流控）	下游就绪与 dummy/展开停顿条件由与变或
+101	ibex_prefetch_buffer	通用（顺序取指）	IF（取指 PC）	取指地址递增被改成递减
+103	ibex_id_stage	RV32M-Mul/Div	ID/EX（多周期写回）	多周期乘除法写使能错误自引用
+107	ibex_decoder	通用（全部指令）	ID/EX（译码）	非法指令默认值置位使所有 opcode 非法
+110	ibex_compressed_decoder	RVC（C.J/C.JAL）	ID/EX（压缩译码）	跳转立即数 bit 6 错取 bit 5
+111	ibex_alu	通用（ALU/地址/控制流）	EX（ALU 加法器）	共享加法器加法被改为减法
+112	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 末项 next-state 读取越界索引
+113	ibex_fetch_fifo	通用（全部指令）	IF（取指地址）	输出指令地址最低位被强制为 1
+114	ibex_alu	RV32I-ALU-Logical（AND）	EX（ALU）	AND 选择条件几乎恒真
+115	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	新请求空间条件错误用 req 替代 branch
+116	ibex_wb_stage	通用（寄存器写回类）	WB（写回）	非加载写回通道错误读取加载数据槽
+117	ibex_alu	RV32I-ALU-Logical（XOR）	EX（ALU）	逻辑结果默认值由 XOR 改为 OR
+118	ibex_if_stage	RV32I-Branch/Jump	IF（重定向）	显式 PC 重定向与预测跳转错误相与
+120	ibex_alu	RV32I-ALU-Arithmetic/Compare	EX（ALU 加法器）	B 求反输入最低位错误置 1
+121	ibex_multdiv_fast	RV32M-Div/Rem	EX（除法单元）	除数错误读取被除数中间寄存器
+122	ibex_core	通用（双源寄存器指令）	ID/EX（寄存器读取）	源寄存器 B 地址错误复制源 A
+123	ibex_core	通用（RVFI 观测）	退休/RVFI（跨阶段）	RVFI mcycle 数组索引越界
+124	ibex_wb_stage	RV32I-Load	WB（加载写回）	LSU 数据错误驱动非加载数据槽
+125	ibex_decoder	通用（全部指令）	ID/EX（译码）	opcode 只取指令低 3 位
+126	ibex_id_stage	RV32M-Mul/Div	ID/EX（多周期控制）	未完成乘除法时不产生停顿
+127	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	clear 极性/组合关系错误导致末项常有效
+128	ibex_controller	通用（非法指令/异常）	ID/EX（异常控制）	非法指令记录条件由与变或
+129	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 移位写使能的两个来源错误相与
+130	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	未完成请求错误用总线错误代替授权
+131	ibex_fetch_fifo	RVC	IF（取指 FIFO）	FIFO 弹出额外依赖下一半字为压缩指令
+134	ibex_ex_block	RV32M-Mul/Div	EX（执行块）	中间结果槽 0 被误写为槽 1
+138	ibex_if_stage	通用（全部指令）	IF（取指流控）	关闭 dummy 指令功能时仍恒定停顿
+139	ibex_multdiv_fast	RV32M-Div/Rem	EX（除法单元）	迭代减法的扩展最低位错误
+140	ibex_id_stage	RV32I-Load/Store	ID/EX（停顿控制）	存储器停顿项被跳转停顿项替换
+141	ibex_alu	RV32I-ALU-Shift	EX（移位器）	右移输入错误取操作数 B
+142	ibex_id_stage	通用（多周期/控制流）	ID/EX（周期控制）	首周期判定条件反转
+143	ibex_prefetch_buffer	RV32I-Control-flow	IF（预取/重定向）	分支丢弃标记缺少请求与授权限定
+144	ibex_id_stage	通用（全部指令）	ID/EX（完成控制）	指令完成条件由三项相与变为部分相或
+145	ibex_decoder	通用（寄存器写回类）	ID/EX（译码）	目的寄存器地址错误取 rs1
+146	ibex_multdiv_fast	RV32M-Div/Rem	EX（除法单元）	末次除法迭代的扩展最低位错误
+147	ibex_load_store_unit	RV32I-Load（LBU）	LSU/MEM（加载对齐）	无符号字节加载错误取存储写数据
+148	ibex_fetch_fifo	通用（含 RVC）	IF（取指 FIFO）	FIFO 弹出就绪和有效条件由与变或
+150	ibex_id_stage	RV32M-Div/Rem	ID/EX（发射/控制）	非执行周期仍恒定开启除法单元
+151	ibex_prefetch_buffer	通用（全部指令）	IF（预取请求）	高位未完成请求跟踪错误使用 next-state 请求
+152	ibex_id_stage	RV32I-Immediate/Address	ID/EX（操作数选择）	ALU 的 B 立即数错误取 A 立即数
+153	ibex_fetch_fifo	RVC	IF（压缩指令识别）	跨字半字的压缩编码判据常量错误
+156	ibex_fetch_fifo	通用（全部指令）	IF（取指 FIFO）	FIFO 末项入队条件由与变或
+157	ibex_wb_stage	通用（寄存器写回类）	WB（写回）	非加载写回数据错误受加载写使能控制
+160	ibex_fetch_fifo	通用（全部指令）	IF（取指 PC）	PC 更新握手错误使用输入有效
+162	ibex_core	通用（取指访问故障）	IF（PMP/异常）	无 PMP 配置时恒报取指 PMP 错误
+164	ibex_decoder	RV32M-Mul	ID/EX（译码）	支持 M 扩展时仍把 MUL 判为非法
+165	ibex_decoder	RV32I-Jump（JAL）	ID/EX（译码/写回控制）	JAL 第二周期关闭链接地址写回
+166	ibex_wb_stage	通用（寄存器写回类）	WB（写回）	写回掩码与数据错误相或
+167	ibex_alu	RV32I-ALU-Logical	EX（ALU）	普通逻辑操作默认对 B 操作数取反
