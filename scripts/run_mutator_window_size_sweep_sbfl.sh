@@ -8,10 +8,13 @@ Usage:
   run_mutator_window_size_sweep_sbfl.sh --case <case_dir_or_diff> --mutator-window-size <LIST> [options] [-- run_bugset_sbfl_args...]
 
 Options:
-  --mutator-window-size <LIST>   Comma-separated or quoted space-separated positive integers, e.g. 5,10,20
-  --mutator-window-sizes <LIST>  Alias for --mutator-window-size
-  --sweep-jobs <N>               Parallel window-size runs, default: 1
-  -j, --jobs <N>                 Per-window run_bugset_sbfl.sh jobs, forwarded to run_bugset_sbfl.sh
+  --mutator-window-size <LIST>       Comma-separated or quoted space-separated positive integers, e.g. 5,10,20
+  --mutator-window-sizes <LIST>      Alias for --mutator-window-size
+  --mutator-weight-strategy <LIST>   Comma-separated or quoted space-separated strategies, default: uniform
+                                      possible values: uniform, tail_linear, tail_quad, head_linear, head_quad
+  --mutator-weight-strategies <LIST> Alias for --mutator-weight-strategy
+  --sweep-jobs <N>                   Parallel strategy/window runs, default: 1
+  -j, --jobs <N>                     Per-sweep run_bugset_sbfl.sh jobs, forwarded to run_bugset_sbfl.sh
   -t, --tmp <DIR>                Sweep temporary root, default: /tmp/run_mutator_window_size_sweep_sbfl
   -l, --logs <DIR>               Sweep logs root, default: ./logs/mutator_window_size_sweep
   -w, --workdir <DIR>            Ibex workdir, forwarded to run_bugset_sbfl.sh
@@ -28,19 +31,21 @@ own -- separator:
 
   run_mutator_window_size_sweep_sbfl.sh --all verify_dataset \
     --mutator-window-size 5,10,20 \
+    --mutator-weight-strategy uniform,tail_linear,tail_quad \
     --sweep-jobs 2 -j 4 \
     -- --max-iters 20 --top-sus 50 -- -c 10000000
 
 Outputs:
   <logs>/<sweep_run_id>/sweep_status.tsv
-  <logs>/<sweep_run_id>/mutator_window_size_block_summary.tsv
-  <logs>/<sweep_run_id>/window_<N>/sbfl_block_summary.tsv
+  <logs>/<sweep_run_id>/mutator_strategy_window_size_block_summary.tsv
+  <logs>/<sweep_run_id>/strategy_<S>/window_<N>/sbfl_block_summary.tsv
 EOF
 }
 
 MODE=""
 TARGET=""
 WINDOW_SIZES=()
+WEIGHT_STRATEGIES=(uniform)
 SWEEP_JOBS=1
 INNER_JOBS=""
 TMP_ROOT=""
@@ -66,6 +71,18 @@ append_window_sizes() {
   done
 }
 
+append_weight_strategies() {
+  local list="$1"
+  local item
+
+  list="${list//,/ }"
+  for item in ${list}; do
+    if [[ -n "${item}" ]]; then
+      WEIGHT_STRATEGIES+=("${item}")
+    fi
+  done
+}
+
 validate_positive_int() {
   local name="$1"
   local value="$2"
@@ -74,6 +91,20 @@ validate_positive_int() {
     echo "[ERROR] ${name} must be a positive integer: ${value}" >&2
     exit 1
   fi
+}
+
+validate_weight_strategy() {
+  local strategy="$1"
+
+  case "${strategy}" in
+  uniform | tail_linear | tail_quad | head_linear | head_quad)
+    ;;
+  *)
+    echo "[ERROR] invalid mutator weight strategy: ${strategy}" >&2
+    echo "        expected one of: uniform, tail_linear, tail_quad, head_linear, head_quad" >&2
+    exit 1
+    ;;
+  esac
 }
 
 validate_nonnegative_int() {
@@ -112,6 +143,17 @@ while [[ "$#" -gt 0 ]]; do
       exit 1
     }
     append_window_sizes "$2"
+    shift 2
+    ;;
+  --mutator-weight-strategy | --mutator-weight-strategies | --mutator-weight-strategy-list)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    if [[ "${#WEIGHT_STRATEGIES[@]}" -eq 1 && "${WEIGHT_STRATEGIES[0]}" == "uniform" ]]; then
+      WEIGHT_STRATEGIES=()
+    fi
+    append_weight_strategies "$2"
     shift 2
     ;;
   --sweep-jobs | --window-jobs)
@@ -203,7 +245,7 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${MODE}" || -z "${TARGET}" || "${#WINDOW_SIZES[@]}" -eq 0 ]]; then
+if [[ -z "${MODE}" || -z "${TARGET}" || "${#WINDOW_SIZES[@]}" -eq 0 || "${#WEIGHT_STRATEGIES[@]}" -eq 0 ]]; then
   usage
   exit 1
 fi
@@ -219,6 +261,10 @@ for size in "${WINDOW_SIZES[@]}"; do
   validate_positive_int "mutator window size" "${size}"
 done
 
+for strategy in "${WEIGHT_STRATEGIES[@]}"; do
+  validate_weight_strategy "${strategy}"
+done
+
 declare -A SEEN_WINDOW_SIZES=()
 for size in "${WINDOW_SIZES[@]}"; do
   if [[ -n "${SEEN_WINDOW_SIZES[${size}]:-}" ]]; then
@@ -227,6 +273,16 @@ for size in "${WINDOW_SIZES[@]}"; do
   fi
 
   SEEN_WINDOW_SIZES["${size}"]=1
+done
+
+declare -A SEEN_WEIGHT_STRATEGIES=()
+for strategy in "${WEIGHT_STRATEGIES[@]}"; do
+  if [[ -n "${SEEN_WEIGHT_STRATEGIES[${strategy}]:-}" ]]; then
+    echo "[ERROR] duplicate mutator weight strategy: ${strategy}" >&2
+    exit 1
+  fi
+
+  SEEN_WEIGHT_STRATEGIES["${strategy}"]=1
 done
 
 if ! command -v realpath >/dev/null 2>&1; then
@@ -310,11 +366,11 @@ SWEEP_LOGS_ROOT="${LOGS_ROOT}/${SWEEP_RUN_ID}"
 SWEEP_TMP_ROOT="${TMP_ROOT}/${SWEEP_RUN_ID}"
 STATUS_FILE="${SWEEP_LOGS_ROOT}/sweep_status.tsv"
 STATUS_LOCK="${SWEEP_LOGS_ROOT}/sweep_status.lock"
-COMBINED_SUMMARY="${SWEEP_LOGS_ROOT}/mutator_window_size_block_summary.tsv"
+COMBINED_SUMMARY="${SWEEP_LOGS_ROOT}/mutator_strategy_window_size_block_summary.tsv"
 
 mkdir -p "${SWEEP_LOGS_ROOT}" "${SWEEP_TMP_ROOT}"
 
-printf "mutator_window_size\tstatus\trun_rc\tsummary_rc\telapsed_time\tlogs_root\ttmp_root\trun_log\tsummary_log\tsummary_tsv\n" >"${STATUS_FILE}"
+printf "mutator_weight_strategy\tmutator_window_size\tstatus\trun_rc\tsummary_rc\telapsed_time\tlogs_root\ttmp_root\trun_log\tsummary_log\tsummary_tsv\n" >"${STATUS_FILE}"
 
 format_elapsed_ms() {
   local total_ms="$1"
@@ -328,20 +384,22 @@ format_elapsed_ms() {
 }
 
 append_status() {
-  local window_size="$1"
-  local status="$2"
-  local run_rc="$3"
-  local summary_rc="$4"
-  local elapsed_time="$5"
-  local logs_root="$6"
-  local tmp_root="$7"
-  local run_log="$8"
-  local summary_log="$9"
-  local summary_tsv="${10}"
+  local weight_strategy="$1"
+  local window_size="$2"
+  local status="$3"
+  local run_rc="$4"
+  local summary_rc="$5"
+  local elapsed_time="$6"
+  local logs_root="$7"
+  local tmp_root="$8"
+  local run_log="$9"
+  local summary_log="${10}"
+  local summary_tsv="${11}"
 
   {
     flock 200
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+      "${weight_strategy}" \
       "${window_size}" \
       "${status}" \
       "${run_rc}" \
@@ -355,15 +413,16 @@ append_status() {
   } 200>"${STATUS_LOCK}"
 }
 
-run_one_window_size() (
-  local window_size="$1"
+run_one_sweep_point() (
+  local weight_strategy="$1"
+  local window_size="$2"
   local start_ms
   local end_ms
   local elapsed_ms
   local elapsed_time
-  local window_root="${SWEEP_LOGS_ROOT}/window_${window_size}"
+  local window_root="${SWEEP_LOGS_ROOT}/strategy_${weight_strategy}/window_${window_size}"
   local window_logs="${window_root}/sbfl_logs"
-  local window_tmp="${SWEEP_TMP_ROOT}/window_${window_size}"
+  local window_tmp="${SWEEP_TMP_ROOT}/strategy_${weight_strategy}/window_${window_size}"
   local run_log="${window_root}/run_bugset_sbfl.log"
   local summary_log="${window_root}/summarize_sbfl_blocks.log"
   local summary_tsv="${window_root}/sbfl_block_summary.tsv"
@@ -376,7 +435,13 @@ run_one_window_size() (
 
   mkdir -p "${window_logs}" "${window_tmp}"
 
-  cmd=(bash "${RUN_SCRIPT}" "--${MODE}" "${TARGET}" --mutator-window-size "${window_size}" -t "${window_tmp}" -l "${window_logs}")
+  cmd=(
+    bash "${RUN_SCRIPT}" "--${MODE}" "${TARGET}"
+    --mutator-weight-strategy "${weight_strategy}"
+    --mutator-window-size "${window_size}"
+    -t "${window_tmp}"
+    -l "${window_logs}"
+  )
 
   if [[ -n "${INNER_JOBS}" ]]; then
     cmd+=(-j "${INNER_JOBS}")
@@ -391,6 +456,7 @@ run_one_window_size() (
   fi
 
   {
+    echo "[STRATEGY] mutator-weight-strategy=${weight_strategy}"
     echo "[WINDOW] mutator-window-size=${window_size}"
     printf '[RUN]'
     printf ' %q' "${cmd[@]}"
@@ -432,6 +498,7 @@ run_one_window_size() (
   elapsed_time="$(format_elapsed_ms "${elapsed_ms}")"
 
   append_status \
+    "${weight_strategy}" \
     "${window_size}" \
     "${status}" \
     "${run_rc}" \
@@ -443,11 +510,12 @@ run_one_window_size() (
     "${summary_log}" \
     "${summary_tsv}"
 
-  echo "[DONE][window=${window_size}] ${status}, run_rc=${run_rc}, summary_rc=${summary_rc}, elapsed=${elapsed_time}"
+  echo "[DONE][strategy=${weight_strategy}][window=${window_size}] ${status}, run_rc=${run_rc}, summary_rc=${summary_rc}, elapsed=${elapsed_time}"
 )
 
 write_combined_summary() {
   local header_written=0
+  local weight_strategy
   local window_size
   local status
   local run_rc
@@ -461,8 +529,8 @@ write_combined_summary() {
 
   : >"${COMBINED_SUMMARY}"
 
-  while IFS=$'\t' read -r window_size status run_rc summary_rc elapsed_time logs_root tmp_root run_log summary_log summary_tsv; do
-    if [[ "${window_size}" == "mutator_window_size" ]]; then
+  while IFS=$'\t' read -r weight_strategy window_size status run_rc summary_rc elapsed_time logs_root tmp_root run_log summary_log summary_tsv; do
+    if [[ "${weight_strategy}" == "mutator_weight_strategy" ]]; then
       continue
     fi
 
@@ -471,15 +539,15 @@ write_combined_summary() {
     fi
 
     if [[ "${header_written}" -eq 0 ]]; then
-      awk 'BEGIN { FS = OFS = "\t" } NR == 1 { print "mutator_window_size", $0 }' "${summary_tsv}" >>"${COMBINED_SUMMARY}"
+      awk 'BEGIN { FS = OFS = "\t" } NR == 1 { print "mutator_weight_strategy", "mutator_window_size", $0 }' "${summary_tsv}" >>"${COMBINED_SUMMARY}"
       header_written=1
     fi
 
-    awk -v window_size="${window_size}" 'BEGIN { FS = OFS = "\t" } NR > 1 { print window_size, $0 }' "${summary_tsv}" >>"${COMBINED_SUMMARY}"
+    awk -v weight_strategy="${weight_strategy}" -v window_size="${window_size}" 'BEGIN { FS = OFS = "\t" } NR > 1 { print weight_strategy, window_size, $0 }' "${summary_tsv}" >>"${COMBINED_SUMMARY}"
   done <"${STATUS_FILE}"
 
   if [[ "${header_written}" -eq 0 ]]; then
-    printf "mutator_window_size\tbugset\tdiff\tstatus\ttop-k\tsus\telapsed_time\tfuzzing_time\n" >"${COMBINED_SUMMARY}"
+    printf "mutator_weight_strategy\tmutator_window_size\tbugset\tdiff\tstatus\ttop-k\tsus\telapsed_time\tfuzzing_time\n" >"${COMBINED_SUMMARY}"
   fi
 }
 
@@ -487,7 +555,7 @@ CHILD_PIDS=()
 
 on_interrupt() {
   echo
-  echo "[INTERRUPT] stopping window-size runs..."
+  echo "[INTERRUPT] stopping strategy/window runs..."
 
   trap - INT TERM
 
@@ -503,6 +571,7 @@ trap on_interrupt INT TERM
 
 echo "[INFO] target              : ${TARGET}"
 echo "[INFO] mode                : ${MODE}"
+echo "[INFO] mutator strategies  : ${WEIGHT_STRATEGIES[*]}"
 echo "[INFO] mutator windows     : ${WINDOW_SIZES[*]}"
 echo "[INFO] sweep jobs          : ${SWEEP_JOBS}"
 echo "[INFO] run_bugset jobs     : ${INNER_JOBS:-run_bugset_sbfl.sh default}"
@@ -513,15 +582,17 @@ echo "[INFO] status file         : ${STATUS_FILE}"
 
 running=0
 
-for window_size in "${WINDOW_SIZES[@]}"; do
-  run_one_window_size "${window_size}" &
-  CHILD_PIDS+=("$!")
-  running=$((running + 1))
+for weight_strategy in "${WEIGHT_STRATEGIES[@]}"; do
+  for window_size in "${WINDOW_SIZES[@]}"; do
+    run_one_sweep_point "${weight_strategy}" "${window_size}" &
+    CHILD_PIDS+=("$!")
+    running=$((running + 1))
 
-  if ((running >= SWEEP_JOBS)); then
-    wait -n || true
-    running=$((running - 1))
-  fi
+    if ((running >= SWEEP_JOBS)); then
+      wait -n || true
+      running=$((running - 1))
+    fi
+  done
 done
 
 while ((running > 0)); do
@@ -532,10 +603,10 @@ done
 write_combined_summary
 
 total="$(awk -F'\t' 'NR > 1 { c++ } END { print c + 0 }' "${STATUS_FILE}")"
-failed="$(awk -F'\t' 'NR > 1 && $2 != "OK" { c++ } END { print c + 0 }' "${STATUS_FILE}")"
+failed="$(awk -F'\t' 'NR > 1 && $3 != "OK" { c++ } END { print c + 0 }' "${STATUS_FILE}")"
 
 echo "============================================================"
-echo "[SUMMARY] window runs     : ${total}"
+echo "[SUMMARY] sweep runs      : ${total}"
 echo "[SUMMARY] failed          : ${failed}"
 echo "[SUMMARY] status file     : ${STATUS_FILE}"
 echo "[SUMMARY] combined summary: ${COMBINED_SUMMARY}"

@@ -10,7 +10,7 @@ import sys
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Mapping
 
 
 BLOCK_RANK_RE = re.compile(
@@ -56,6 +56,63 @@ def read_fuzzing_time(logdir: Path) -> str:
         return ""
 
     return read_text(fuzzing_time_path).strip()
+
+
+def parse_time(s: str) -> float:
+    s = s.strip()
+
+    if not s:
+        return 0.0
+
+    if s.endswith("ms"):
+        return float(s[:-2]) / 1000.0
+
+    if s.endswith("µs"):
+        return float(s[:-2]) / 1_000_000.0
+
+    if s.endswith("us"):
+        return float(s[:-2]) / 1_000_000.0
+
+    if s.endswith("ns"):
+        return float(s[:-2]) / 1_000_000_000.0
+
+    if s.endswith("s"):
+        return float(s[:-1])
+
+    return float(s)
+
+
+def parse_elapsed_time(s: str) -> float:
+    s = s.strip()
+
+    if not s:
+        return 0.0
+
+    if re.fullmatch(r"\d+:\d{2}:\d{2}:\d{3}", s):
+        hours, minutes, seconds, milliseconds = (int(x) for x in s.split(":"))
+        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000.0
+
+    return parse_time(s)
+
+
+def parse_rank(rank_str: str) -> float | None:
+    """
+    Return:
+        float : average rank
+        None  : Over
+    """
+    rank_str = rank_str.strip().lower()
+
+    if rank_str.startswith("over"):
+        return None
+
+    if rank_str.startswith("top-"):
+        rank_str = rank_str[4:]
+
+    try:
+        return float(rank_str)
+    except Exception:
+        return None
 
 
 def normalize_status_kind(kind: str) -> str:
@@ -422,6 +479,7 @@ def find_bug_rank(
 
     return f"over top-{top_n}", ""
 
+
 def iter_status_dirs(logs_root: Path):
     for status_path in sorted(logs_root.rglob("status.txt")):
         yield status_path.parent, status_path
@@ -443,6 +501,94 @@ def error_row(
         "elapsed_time": elapsed_time,
         "fuzzing_time": fuzzing_time,
     }
+
+
+def compute_summary_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, float | int]:
+    top1 = 0
+    top5 = 0
+    top10 = 0
+    top20 = 0
+
+    mar_sum = 0.0
+    mar_cnt = 0
+
+    elapsed_sum = 0.0
+    fuzzing_sum = 0.0
+    time_cnt = 0
+
+    ok_cnt = 0
+
+    for row in rows:
+        if row.get("status") != "OK":
+            continue
+
+        ok_cnt += 1
+
+        rank = parse_rank(row.get("top-k", row.get("top", "")))
+
+        if rank is not None:
+            if rank <= 1:
+                top1 += 1
+            if rank <= 5:
+                top5 += 1
+            if rank <= 10:
+                top10 += 1
+            if rank <= 20:
+                top20 += 1
+
+            mar_sum += rank if rank <= 10 else 11
+        else:
+            mar_sum += 11
+
+        mar_cnt += 1
+
+        if row.get("elapsed_time", ""):
+            elapsed_sum += parse_elapsed_time(row["elapsed_time"])
+
+        if row.get("fuzzing_time", ""):
+            fuzzing_sum += parse_time(row["fuzzing_time"])
+
+        time_cnt += 1
+
+    return {
+        "ok_cnt": ok_cnt,
+        "top1": top1,
+        "top5": top5,
+        "top10": top10,
+        "top20": top20,
+        "mar_sum": mar_sum,
+        "mar_cnt": mar_cnt,
+        "elapsed_sum": elapsed_sum,
+        "fuzzing_sum": fuzzing_sum,
+        "time_cnt": time_cnt,
+    }
+
+
+def print_summary_stats(rows: Iterable[Mapping[str, str]]) -> None:
+    stats = compute_summary_stats(rows)
+
+    print(f"OK              : {stats['ok_cnt']}")
+    print(f"Top-1           : {stats['top1']}")
+    print(f"Top-5           : {stats['top5']}")
+    print(f"Top-10          : {stats['top10']}")
+    print(f"Top-20          : {stats['top20']}")
+
+    mar_cnt = int(stats["mar_cnt"])
+    if mar_cnt:
+        print(f"MAR@10          : {float(stats['mar_sum']) / mar_cnt:.3f}")
+    else:
+        print("MAR@10          : n/a")
+
+    time_cnt = int(stats["time_cnt"])
+    if time_cnt:
+        print(f"Average elapsed : {float(stats['elapsed_sum']) / time_cnt:.2f} s")
+        print(f"Average fuzzing : {float(stats['fuzzing_sum']) / time_cnt:.2f} s")
+
+
+def print_summary_stats_from_file(summary_path: Path) -> None:
+    with summary_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        print_summary_stats(reader)
 
 
 def process_one_logdir(
@@ -532,9 +678,14 @@ def process_one_logdir(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("bugset_root", help="bugset directory, e.g. bugset")
-    parser.add_argument("logs_root", help="logs directory, e.g. logs")
+    parser.add_argument("bugset_root", nargs="?", help="bugset directory, e.g. bugset")
+    parser.add_argument("logs_root", nargs="?", help="logs directory, e.g. logs")
     parser.add_argument("-o", "--output", default="sbfl_block_summary.tsv")
+    parser.add_argument(
+        "--stats-only",
+        type=Path,
+        help="print Top-k/MAR/time stats for an existing summary TSV and exit",
+    )
     parser.add_argument(
         "--line-window",
         type=int,
@@ -542,6 +693,13 @@ def main() -> int:
         help="line matching window. 0 means exact line match; 1 means +/-1 line.",
     )
     args = parser.parse_args()
+
+    if args.stats_only is not None:
+        print_summary_stats_from_file(args.stats_only)
+        return 0
+
+    if args.bugset_root is None or args.logs_root is None:
+        parser.error("bugset_root and logs_root are required unless --stats-only is used")
 
     bugset_root = Path(args.bugset_root).resolve()
     logs_root = Path(args.logs_root).resolve()
@@ -594,6 +752,7 @@ def main() -> int:
         writer.writerows(rows)
 
     print(f"[DONE] wrote {len(rows)} rows to {output_path}")
+    print_summary_stats(rows)
     return 0
 
 
