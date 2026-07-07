@@ -57,6 +57,23 @@ def read_fuzzing_time(logdir: Path) -> str:
 
     return read_text(fuzzing_time_path).strip()
 
+def read_elpased_time(logdir: Path) -> str:
+    """
+    Read SBFL elpased CPU time from:
+        <logdir>/sbfl_time.txt
+
+    The file is produced by Rust with `{sbfl_elapsed:?}`, so keep the raw
+    Duration debug string, for example: `1.234s`, `123ms`, `42µs`, or `0ns`.
+    Missing file is allowed and represented as an empty field.
+    """
+    elpased_time_path = logdir / "sbfl_time.txt"
+
+    if not elpased_time_path.is_file():
+        return ""
+
+    return read_text(elpased_time_path).strip()
+
+
 
 def parse_time(s: str) -> float:
     s = s.strip()
@@ -80,20 +97,6 @@ def parse_time(s: str) -> float:
         return float(s[:-1])
 
     return float(s)
-
-
-def parse_elapsed_time(s: str) -> float:
-    s = s.strip()
-
-    if not s:
-        return 0.0
-
-    if re.fullmatch(r"\d+:\d{2}:\d{2}:\d{3}", s):
-        hours, minutes, seconds, milliseconds = (int(x) for x in s.split(":"))
-        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000.0
-
-    return parse_time(s)
-
 
 def parse_rank(rank_str: str) -> float | None:
     """
@@ -129,10 +132,10 @@ def format_elapsed_ms(total_ms: int) -> str:
 def parse_status(status_path: Path) -> tuple[str, bool, str, str] | None:
     """
     Return:
-        (bugcase, True,  "OK",             elapsed_time)
-        (bugcase, False, "BUILD_FAIL(1)",  elapsed_time)
-        (bugcase, False, "SBFL_FAIL(101)", elapsed_time)
-        (bugcase, False, "ERROR(1)",       elapsed_time)
+        (bugcase, True,  "OK")
+        (bugcase, False, "BUILD_FAIL(1)")
+        (bugcase, False, "SBFL_FAIL(101)")
+        (bugcase, False, "ERROR(1)")
 
     bugcase example:
         0/ibex_decoder.sv.diff
@@ -147,14 +150,9 @@ def parse_status(status_path: Path) -> tuple[str, bool, str, str] | None:
     kind = normalize_status_kind(m.group("kind"))
     bugcase = m.group("bugcase")
     status = m.group("status")
-    elapsed_time = m.group("elapsed")
-    elapsed_ms = m.group("elapsed_ms")
-    if elapsed_time is None and elapsed_ms is not None:
-        elapsed_time = format_elapsed_ms(int(elapsed_ms))
-    elapsed_time = elapsed_time or ""
 
     if kind == "OK":
-        return bugcase, True, "OK", elapsed_time
+        return bugcase, True, "OK"
 
     if status is None:
         print(
@@ -163,7 +161,7 @@ def parse_status(status_path: Path) -> tuple[str, bool, str, str] | None:
         )
         status = "-1"
 
-    return bugcase, False, f"{kind}({status})", elapsed_time
+    return bugcase, False, f"{kind}({status})"
 
 
 def resolve_bugcase_ref(
@@ -543,7 +541,7 @@ def compute_summary_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, float 
         mar_cnt += 1
 
         if row.get("elapsed_time", ""):
-            elapsed_sum += parse_elapsed_time(row["elapsed_time"])
+            elapsed_sum += parse_time(row["elapsed_time"])
 
         if row.get("fuzzing_time", ""):
             fuzzing_sum += parse_time(row["fuzzing_time"])
@@ -602,8 +600,9 @@ def process_one_logdir(
     if parsed is None:
         return None
 
-    bugcase, is_ok, csv_status, elapsed_time = parsed
+    bugcase, is_ok, csv_status = parsed
     fuzzing_time = read_fuzzing_time(logdir)
+    elapsed_time = read_elpased_time(logdir)
 
     resolved = resolve_bugcase_ref(bugset_root, bugcase)
     if resolved is None:
