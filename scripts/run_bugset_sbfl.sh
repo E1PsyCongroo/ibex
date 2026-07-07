@@ -34,6 +34,7 @@ SBFL binary options:
   --mutator-window-size <N>     SBFL mutator window size, default: 20
   --mutator-weight-strategy <S> SBFL mutator weight strategy, default: uniform
                                 possible values: uniform, tail_linear, tail_quad, head_linear, head_quad
+  --cover-distance-weight       SBFL cover distance weight, default: 0.5
   --rtl-path <PATH>             SBFL RTL path, default: <case_workdir>/rtl
   --include-paths <PATHS>       SBFL include paths, default: Ibex prim/dv_utils include paths in case workdir
   --top-module <MODULE>         SBFL top module, default: ibex_core
@@ -81,6 +82,7 @@ SBFL_SAVE_TRACE=0
 SBFL_TRACKER_WINDOW_SIZE=20
 SBFL_MUTATOR_WINDOW_SIZE=20
 SBFL_MUTATOR_WEIGHT_STRATEGY="uniform"
+SBFL_COVER_DISTANCE_WEIGHT=0.5
 SBFL_RTL_PATH=""
 SBFL_INCLUDE_PATHS=""
 SBFL_TOP_MODULE="ibex_core"
@@ -248,6 +250,14 @@ while [[ "$#" -gt 0 ]]; do
       exit 1
     }
     SBFL_MUTATOR_WINDOW_SIZE="$2"
+    shift 2
+    ;;
+  --cover-distance-weight)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_COVER_DISTANCE_WEIGHT="$2"
     shift 2
     ;;
   --mutator-weight-strategy)
@@ -730,6 +740,7 @@ run_one_diff() (
     --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
     --mutator-window-size "${SBFL_MUTATOR_WINDOW_SIZE}"
     --mutator-weight-strategy "${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+    --cover-distance-weight "${SBFL_COVER_DISTANCE_WEIGHT}"
     --corpus-input "${SBFL_CORPUS_INPUT}"
     --output "${logdir}"
   )
@@ -846,6 +857,7 @@ run_all_cases() {
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
   echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
   local running=0
 
@@ -879,6 +891,7 @@ run_single_case() {
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
   echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
   if [[ -f "${target}" && "${target}" == *.sv.diff ]]; then
     BUGSET_ROOT="$(dirname "$(realpath "${target}")")"
