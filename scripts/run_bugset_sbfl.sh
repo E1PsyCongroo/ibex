@@ -26,6 +26,8 @@ SBFL binary options:
   --max-run-timeout <N>         SBFL max run timeout, default: 60
   --max-iters <N>               SBFL max iterations, default: 50
   --top-pass <N>                SBFL top pass, default: 50
+  --selection <SELECTION>       SBFL pass case selection, default: sort
+                                possible values: random, sort
   --top-sus <N>                 SBFL top suspicious blocks, default: 50
   --corpus-input <PATH>         SBFL corpus input, default: examples/sw/benchmarks/coremark/coremark.elf
   --save-reduce                 Pass --save-reduce to SBFL, default: disable
@@ -75,6 +77,7 @@ SBFL_BASE_MUTATOR=0
 SBFL_MAX_RUN_TIMEOUT=60
 SBFL_MAX_ITERS=50
 SBFL_TOP_PASS=50
+SBFL_SELECTION="sort"
 SBFL_TOP_SUS=50
 SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
 SBFL_SAVE_REDUCE=1
@@ -210,6 +213,14 @@ while [[ "$#" -gt 0 ]]; do
       exit 1
     }
     SBFL_TOP_PASS="$2"
+    shift 2
+    ;;
+  --selection)
+    [[ "$#" -ge 2 ]] || {
+      usage
+      exit 1
+    }
+    SBFL_SELECTION="$2"
     shift 2
     ;;
   --top-sus)
@@ -369,6 +380,16 @@ uniform | tail_linear | tail_quad | head_linear | head_quad)
 *)
   echo "[ERROR] SBFL_MUTATOR_WEIGHT_STRATEGY has invalid value: ${SBFL_MUTATOR_WEIGHT_STRATEGY}" >&2
   echo "        expected one of: uniform, tail_linear, tail_quad, head_linear, head_quad" >&2
+  exit 1
+  ;;
+esac
+
+case "${SBFL_SELECTION}" in
+random | sort)
+  ;;
+*)
+  echo "[ERROR] SBFL_SELECTION has invalid value: ${SBFL_SELECTION}" >&2
+  echo "        expected one of: random, sort" >&2
   exit 1
   ;;
 esac
@@ -736,6 +757,7 @@ run_one_diff() (
     --max-run-timeout "${SBFL_MAX_RUN_TIMEOUT}"
     --max-iters "${SBFL_MAX_ITERS}"
     --top-pass "${SBFL_TOP_PASS}"
+    --selection "${SBFL_SELECTION}"
     --top-sus "${SBFL_TOP_SUS}"
     --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
     --mutator-window-size "${SBFL_MUTATOR_WINDOW_SIZE}"
@@ -857,6 +879,7 @@ run_all_cases() {
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
   echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  echo "[INFO] selection   : ${SBFL_SELECTION}"
   echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
   local running=0
@@ -891,6 +914,7 @@ run_single_case() {
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
   echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  echo "[INFO] selection   : ${SBFL_SELECTION}"
   echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
   if [[ -f "${target}" && "${target}" == *.sv.diff ]]; then
