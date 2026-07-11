@@ -19,7 +19,8 @@ SBFL binary options:
   --sbfl-bin <PATH>             SBFL binary path relative to workdir, or absolute
                                 default: build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
   -f, --fuzzing                 Pass -f/--fuzzing to SBFL, default: enabled
-  -r, --reduce                  Pass -r/--reduce to SBFL, default: disabled
+  -r, --reduce-insts, --reduce  Pass -r/--reduce-insts to SBFL, default: disabled
+  --reduce-cover                Pass --reduce-cover to SBFL, default: disabled
   -c, --coverage <COVERAGE>     SBFL coverage, default: verilator.branch,verilator.line
   -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
   --base-mutator                Use baseline random mutator instead of last-window mutator, default: disabled
@@ -71,6 +72,7 @@ IBEX_HOME="${IBEX_HOME:-$(pwd)}"
 SBFL_BIN="build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system"
 SBFL_FUZZING=1
 SBFL_REDUCE=0
+SBFL_REDUCE_COVER=0
 SBFL_COVERAGE="verilator.branch,verilator.line"
 SBFL_STATE="PCState,ArchIntRegState,CSRState"
 SBFL_BASE_MUTATOR=0
@@ -93,7 +95,7 @@ SBFL_TOP_SCOPE="TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core"
 SBFL_METRIC="ochiai"
 SBFL_REPEAT=1
 SBFL_AUTO_EXIT=0
-SBFL_EXTRA_ARGS=(-c 10000000)
+SBFL_EXTRA_ARGS=(-c 5000000)
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -167,8 +169,12 @@ while [[ "$#" -gt 0 ]]; do
     SBFL_FUZZING=1
     shift
     ;;
-  -r | --reduce)
+  -r | --reduce | --reduce-insts)
     SBFL_REDUCE=1
+    shift
+    ;;
+  --reduce-cover)
+    SBFL_REDUCE_COVER=1
     shift
     ;;
   -c | --coverage)
@@ -748,7 +754,11 @@ run_one_diff() (
   fi
 
   if [[ "${SBFL_REDUCE}" -eq 1 ]]; then
-    sbfl_args+=(-r)
+    sbfl_args+=(--reduce-insts)
+  fi
+
+  if [[ "${SBFL_REDUCE_COVER}" -eq 1 ]]; then
+    sbfl_args+=(--reduce-cover)
   fi
 
   sbfl_args+=(
