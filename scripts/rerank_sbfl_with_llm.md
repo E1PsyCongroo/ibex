@@ -344,6 +344,7 @@ JSON 对象。返回内容仍不合法时会按 `--retries` 配置重试，并�
   "candidate_count": 50,
   "top_k": 10,
   "source_mode": "full_files",
+  "llm_elapsed_seconds": 42.135,
   "rankings": [
     {
       "original_rank": 17,
@@ -373,6 +374,7 @@ JSON 对象。返回内容仍不合法时会按 `--retries` 配置重试，并�
 | `candidate_count` | 成功映射到 `blocks.json` 的有效候选数量。 |
 | `top_k` | 最终输出的重排序数量。 |
 | `source_mode` | `full_files` 表示使用完整文件；`snippets` 表示使用候选附近片段。 |
+| `llm_elapsed_seconds` | 模型 API 调用、格式校验和重试消耗的总秒数。旧版结果可能没有该字段。 |
 | `original_rank` | SBFL 原始排名。 |
 | `reranked_rank` | 大模型给出的新排名。 |
 | `suspiciousness` | SBFL 原始可疑度，按日志中的字符串保存。 |
@@ -470,18 +472,77 @@ RTL 目录中存在多个同名 `<module>.sv`。应将 `rtl_source` 缩小到唯
 减小 `--candidate-count` 或 `--snippet-radius`，也可以增大源码字符预算。增大预算前应
 确认模型的上下文窗口和 API 成本。
 
-## 15. 测试
+## 15. 汇总统计多个重排序结果
 
-运行脚本对应的单元测试：
+`summarize_llm_rerank.py` 用于遍历日志目录中的 `llm_rerank.json`，将 LLM 排名与
+bugset 中的真实修改位置匹配，并输出逐案例 TSV 和总体指标。
+
+基本用法：
 
 ```bash
-python3 -m unittest scripts/test_rerank_sbfl_with_llm.py
+python3 scripts/summarize_llm_rerank.py \
+  verify_dataset \
+  logs/reduce \
+  -o llm_rerank_summary.tsv
 ```
 
-测试覆盖：
+两个位置参数分别为：
 
-- `result.log` block 排名解析。
-- `blocks.json` 信息合并。
-- 模型排名结果校验。
-- 未知候选 ID 拒绝逻辑。
-- 源码超出预算时的片段降级逻辑。
+- `bugset_root`：bug 数据集目录。每个案例目录中需要包含 `.sv.diff` 和
+  `bug_info.json`。
+- `logs_root`：日志根目录。脚本递归查找 `status.txt`，并在同一目录读取
+  `llm_rerank.json`、`result.log` 和 `blocks.json`。
+
+脚本输出以下统计指标：
+
+- `Top-1`、`Top-5` 和 `Top-10`：真实 bug block 进入相应 LLM 排名范围的案例数。
+- `MRR`：LLM 排名倒数的平均值；未进入 LLM Top-K 的案例按 0 计。
+- `MAR@10`：平均排名；未进入 Top 10 的案例按 11 计。
+- `Improved`、`Unchanged`、`Worsened`：与原始 SBFL 排名比较的案例数。
+- `Average LLM`：重排序 API 的平均耗时。旧版 JSON 没有耗时字段时显示 `n/a`。
+- `Average SBFL` 和 `Average fuzzing`：日志记录的平均 SBFL 和 fuzzing 时间。
+
+LLM 排名和原始 SBFL 排名使用相同的 bug 匹配条件：模块名与 scope 必须相等，且
+候选 block 的源码行必须与 `bug_info.json` 的 `modify_line` 相交。允许前后行误差时使用：
+
+```bash
+python3 scripts/summarize_llm_rerank.py \
+  verify_dataset logs/reduce \
+  --line-window 1 \
+  -o llm_rerank_summary.tsv
+```
+
+如果重排序文件使用其他名称，可以指定：
+
+```bash
+python3 scripts/summarize_llm_rerank.py \
+  verify_dataset logs/reduce \
+  --rerank-filename experiment_a.json \
+  -o experiment_a_summary.tsv
+```
+
+只重新统计已有 TSV，不扫描原始日志：
+
+```bash
+python3 scripts/summarize_llm_rerank.py \
+  --stats-only llm_rerank_summary.tsv
+```
+
+TSV 中的主要字段包括：
+
+| 字段 | 说明 |
+| --- | --- |
+| `status` | `OK`、原始构建/SBFL 错误、`LLM_MISSING` 或 `LLM_ERROR`。只有 `OK` 进入排名指标计算。 |
+| `top-k` | 真实 bug 在 LLM 结果中的排名，未命中时为 `over top-N`。 |
+| `sbfl_top-k` | 使用 `summarize_sbfl_blocks.py` 相同 tie 规则计算的原始 SBFL 排名。 |
+| `rank_delta` | `SBFL排名 - LLM排名`；正数表示提升。任一排名为 `over` 时留空。 |
+| `candidate_id`、`module`、`scope`、`bid`、`lines` | 命中的 LLM 候选信息。 |
+| `original_rank`、`sus` | 命中候选的原始 SBFL 名次和 suspiciousness。 |
+| `reason` | 模型选择该候选时给出的理由。换行和制表空白会被压缩，确保每个案例只占 TSV 一行。 |
+| `llm_elapsed_time` | `llm_rerank.json` 中记录的模型总耗时。 |
+
+运行统计脚本测试：
+
+```bash
+python3 -m unittest scripts/test_summarize_llm_rerank.py
+```

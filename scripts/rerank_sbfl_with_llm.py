@@ -491,6 +491,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         attempt_prompt = prompt
         rankings: list[dict[str, Any]] | None = None
         last_error: RerankError | None = None
+        llm_started = time.monotonic()
         for attempt in range(args.retries + 1):
             response_text = ""
             try:
@@ -526,6 +527,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if rankings is None:
             assert last_error is not None
             raise last_error
+        llm_elapsed_seconds = time.monotonic() - llm_started
 
         output_path = (args.output or (output_dir / "llm_rerank.json")).resolve()
         output = {
@@ -536,6 +538,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "candidate_count": len(candidates),
             "top_k": args.top_k,
             "source_mode": "snippets" if used_snippets else "full_files",
+            "llm_elapsed_seconds": round(llm_elapsed_seconds, 6),
             "rankings": rankings,
             "raw_model_response": response_text,
         }
