@@ -20,11 +20,11 @@ Options:
   -t, --tmp <DIR>                Sweep temporary root, default: /tmp/run_args_sweep_sbfl
   -l, --logs <DIR>               Sweep logs root, default: ./logs/mutator_window_size_sweep
   -w, --workdir <DIR>            Ibex workdir, forwarded to run_bugset_sbfl.sh
-  --line-window <N>              summarize_sbfl_blocks.py line window, default: 0
-  --summary-bugset-root <DIR>    Bugset root for summarize_sbfl_blocks.py.
+  --line-window <N>              Unified ibex-sbfl summary line window, default: 0
+  --summary-bugset-root <DIR>    Bugset root for the unified SBFL summary.
                                  Default: --all target, or inferred parent bugset for --case.
   --run-script <PATH>            run_bugset_sbfl.sh path, default: sibling script
-  --summarize-script <PATH>      summarize_sbfl_blocks.py path, default: sibling script
+  --summarize-script <PATH>      Compatibility summary entry point, default: sibling wrapper
   -h, --help                     Show this help
 
 Any arguments after -- are forwarded to run_bugset_sbfl.sh. This is where you
