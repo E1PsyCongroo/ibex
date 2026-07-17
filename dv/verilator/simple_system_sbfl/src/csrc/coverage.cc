@@ -291,11 +291,6 @@ uint32_t VerilatorCoverage::cover_sum() {
 void VerilatorCoverage::display(const VerilatorCoverGroup &group) {
   std::cout << "COVERAGE: " << ("verilator." + group.name) << ", "
             << group.points.size() << ", " << cover_sum(group) << std::endl;
-  // std::cout << group.name << " coverage points:" << std::endl;
-  // for (uint32_t i = 0; i < group.points.size(); i++) {
-  //   std::cout << "  [" << i << "] " << group.points[i].name << ": "
-  //             << group.points[i].count << std::endl;
-  // }
 }
 
 #endif  // VM_COVERAGE

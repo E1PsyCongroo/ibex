@@ -185,6 +185,61 @@ The default output is:
 logs/reduce/RUN/CASE/llm_rerank.json
 ```
 
+## Single-result and sequential batch wrapper
+
+The repository-level wrapper accepts either one complete result directory or a
+parent directory. To process one result:
+
+```bash
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN/CASE
+```
+
+To process every result below a parent sequentially:
+
+```bash
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN
+```
+
+The second path is detected automatically. A directory containing
+`blocks.json`, `run.log`, and `result.log` is handled once; any other directory
+is treated as a parent and scanned recursively. Batch results are sorted by
+path. Unless overridden, the wrapper adds `--model gpt-5.5` and runs:
+
+```bash
+uv run --project tools/sbfl_llm --frozen ibex-sbfl rerank \
+  rtl RESULT_DIR --model gpt-5.5
+```
+
+A failed directory is recorded and the batch continues by default. The final
+exit status is nonzero if any rerank failed. Useful options are:
+
+```bash
+# Inspect all commands without calling the model API.
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --list-only
+
+# Do not rerun directories that already contain llm_rerank.json.
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --skip-existing
+
+# Stop at the first failed rerank.
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --stop-on-error
+
+# Override the default model.
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --model MODEL
+
+# Build and print every actual model prompt without calling the API.
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --dry-run
+```
+
+A failed directory is recorded and the batch continues by default. The final
+exit status is nonzero if any rerank failed. Direct rerank options are forwarded
+to every selected directory. `--list-only` only prints commands, while the
+forwarded `--dry-run` constructs every prompt and can produce large output. A
+shared `--output` is rejected in parent mode because it would overwrite the
+same file.
+
+Directories containing `blocks.json` and `run.log` but missing `result.log` are
+reported as incomplete and skipped.
+
 ## Rerank command
 
 ```text
@@ -711,10 +766,10 @@ python3 scripts/summarize_sbfl_blocks.py verify_dataset logs/reduce
 python3 scripts/summarize_llm_rerank.py verify_dataset logs/reduce
 ```
 
-The compatibility files contain no fault-localization implementation. They
-locate this project and replace themselves with the corresponding `uv run`
-command. The legacy `--stats-only TSV` forms are translated to the new `stats`
-subcommands.
+The rerank wrapper performs single/parent detection and then calls the unified
+project. The summary compatibility files contain no localization logic; they
+replace themselves with the corresponding `uv run` command. Legacy
+`--stats-only TSV` forms are translated to the new `stats` subcommands.
 
 `scripts/run_args_sweep_sbfl.sh` continues to work through the SBFL summary
 compatibility entry point.

@@ -174,6 +174,57 @@ uv run --project tools/sbfl_llm --frozen ibex-sbfl rerank \
 logs/reduce/RUN/CASE/llm_rerank.json
 ```
 
+## 单结果与顺序批处理统一脚本
+
+仓库级脚本的第二个位置参数既可以是单个完整结果目录，也可以是父目录。处理单个结果：
+
+```bash
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN/CASE
+```
+
+顺序处理父目录下的全部结果：
+
+```bash
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN
+```
+
+脚本会自动判断第二个路径。目录自身包含 `blocks.json`、`run.log` 和 `result.log` 时只
+处理一次；否则将其视为父目录并递归扫描。批处理结果按路径排序。未显式覆盖时，脚本会
+自动添加 `--model gpt-5.5` 并执行：
+
+```bash
+uv run --project tools/sbfl_llm --frozen ibex-sbfl rerank \
+  rtl RESULT_DIR --model gpt-5.5
+```
+
+默认情况下，单个目录失败后会记录错误并继续处理后续目录；只要任意 rerank 失败，批次
+最终返回非零状态。常用选项：
+
+```bash
+# 只检查将要执行的命令，不调用模型 API。
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --list-only
+
+# 跳过已经存在 llm_rerank.json 的目录。
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --skip-existing
+
+# 第一个 rerank 失败后立即停止。
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --stop-on-error
+
+# 覆盖默认模型。
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --model MODEL
+
+# 构造并打印每个真实模型提示词，但不调用 API。
+python3 scripts/rerank_sbfl_with_llm.py rtl logs/reduce/RUN --dry-run
+```
+
+默认情况下，单个目录失败后会记录错误并继续处理后续目录；只要任意 rerank 失败，批次
+最终返回非零状态。其他 rerank 参数会转发给每个选中的目录。`--list-only` 只打印
+命令；转发的 `--dry-run` 会构造每个目录的提示词，因此可能产生大量输出。父目录模式
+拒绝共享 `--output`，避免所有任务覆盖同一个文件。
+
+如果目录包含 `blocks.json` 和 `run.log`，但缺少 `result.log`，脚本会将其报告为
+incomplete 并跳过。
+
 ## Rerank 命令
 
 ```text
@@ -668,8 +719,9 @@ python3 scripts/summarize_sbfl_blocks.py verify_dataset logs/reduce
 python3 scripts/summarize_llm_rerank.py verify_dataset logs/reduce
 ```
 
-兼容脚本不再包含缺陷定位实现。它们只负责定位本项目，然后将自身替换为相应的
-`uv run` 命令。旧的 `--stats-only TSV` 形式会转换成新的 `stats` 子命令。
+rerank wrapper 负责识别单目录/父目录，然后调用统一项目。汇总兼容脚本不包含缺陷定位
+逻辑，只负责将自身替换为相应的 `uv run` 命令。旧的 `--stats-only TSV` 形式会转换成
+新的 `stats` 子命令。
 
 `scripts/run_args_sweep_sbfl.sh` 继续通过 SBFL 汇总兼容入口工作。
 

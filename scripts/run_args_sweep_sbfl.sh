@@ -4,8 +4,8 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  run_args_sweep_sbfl.sh --all <bugset_root> --top-pass <LIST> --mutator-window-size <LIST> --mutator-weight-strategy <LIST> [options] [-- run_bugset_sbfl_args...]
-  run_args_sweep_sbfl.sh --case <case_dir_or_diff> --top-pass <LIST> --mutator-window-size <LIST> --mutator-weight-strategy <LIST> [options] [-- run_bugset_sbfl_args...]
+  run_args_sweep_sbfl.sh --all <bugset_root> --top-pass <LIST> --mutator-window-size <LIST> --mutator-weight-strategy <LIST> [options] [-- run_bugset_psbfl_args...]
+  run_args_sweep_sbfl.sh --case <case_dir_or_diff> --top-pass <LIST> --mutator-window-size <LIST> --mutator-weight-strategy <LIST> [options] [-- run_bugset_psbfl_args...]
 
 Options:
   --top-pass <LIST>                  Comma-separated or quoted space-separated positive integers, e.g. 5,10,20
@@ -16,19 +16,19 @@ Options:
                                       possible values: uniform, tail_linear, tail_quad, head_linear, head_quad
   --mutator-weight-strategies <LIST> Alias for --mutator-weight-strategy
   --sweep-jobs <N>                   Parallel strategy/window runs, default: 1
-  -j, --jobs <N>                     Per-sweep run_bugset_sbfl.sh jobs, forwarded to run_bugset_sbfl.sh
+  -j, --jobs <N>                     Per-sweep run_bugset_psbfl.sh jobs, forwarded to run_bugset_psbfl.sh
   -t, --tmp <DIR>                Sweep temporary root, default: /tmp/run_args_sweep_sbfl
   -l, --logs <DIR>               Sweep logs root, default: ./logs/mutator_window_size_sweep
-  -w, --workdir <DIR>            Ibex workdir, forwarded to run_bugset_sbfl.sh
+  -w, --workdir <DIR>            Ibex workdir, forwarded to run_bugset_psbfl.sh
   --line-window <N>              Unified ibex-sbfl summary line window, default: 0
   --summary-bugset-root <DIR>    Bugset root for the unified SBFL summary.
                                  Default: --all target, or inferred parent bugset for --case.
-  --run-script <PATH>            run_bugset_sbfl.sh path, default: sibling script
+  --run-script <PATH>            run_bugset_psbfl.sh path, default: sibling script
   --summarize-script <PATH>      Compatibility summary entry point, default: sibling wrapper
   -h, --help                     Show this help
 
-Any arguments after -- are forwarded to run_bugset_sbfl.sh. This is where you
-can pass SBFL options such as --max-iters, --top-sus, or run_bugset_sbfl.sh's
+Any arguments after -- are forwarded to run_bugset_psbfl.sh. This is where you
+can pass SBFL options such as --max-iters, --top-sus, or run_bugset_psbfl.sh's
 own -- separator:
 
   run_args_sweep_sbfl.sh --all verify_dataset \
@@ -334,7 +334,7 @@ if ! command -v flock >/dev/null 2>&1; then
   exit 1
 fi
 
-RUN_SCRIPT="${RUN_SCRIPT:-${SCRIPT_DIR}/run_bugset_sbfl.sh}"
+RUN_SCRIPT="${RUN_SCRIPT:-${SCRIPT_DIR}/run_bugset_psbfl.sh}"
 SUMMARIZE_SCRIPT="${SUMMARIZE_SCRIPT:-${SCRIPT_DIR}/summarize_sbfl_blocks.py}"
 
 RUN_SCRIPT="$(realpath "${RUN_SCRIPT}")"
@@ -465,7 +465,7 @@ run_one_sweep_point() (
   local sweep_root="${SWEEP_LOGS_ROOT}/top_pass_${top_pass}/strategy_${weight_strategy}/window_${window_size}"
   local sweep_logs="${sweep_root}/sbfl_logs"
   local sweep_tmp="${SWEEP_TMP_ROOT}/top_pass_${top_pass}/strategy_${weight_strategy}/window_${window_size}"
-  local run_log="${sweep_root}/run_bugset_sbfl.log"
+  local run_log="${sweep_root}/run_bugset_psbfl.log"
   local summary_log="${sweep_root}/summarize_sbfl_blocks.log"
   local summary_tsv="${sweep_root}/sbfl_block_summary.tsv"
   local run_rc
@@ -621,7 +621,7 @@ echo "[INFO] top passes          : ${TOP_PASSES[*]}"
 echo "[INFO] mutator strategies  : ${WEIGHT_STRATEGIES[*]}"
 echo "[INFO] mutator windows     : ${WINDOW_SIZES[*]}"
 echo "[INFO] sweep jobs          : ${SWEEP_JOBS}"
-echo "[INFO] run_bugset jobs     : ${INNER_JOBS:-run_bugset_sbfl.sh default}"
+echo "[INFO] run_bugset jobs     : ${INNER_JOBS:-run_bugset_psbfl.sh default}"
 echo "[INFO] logs root           : ${SWEEP_LOGS_ROOT}"
 echo "[INFO] tmp root            : ${SWEEP_TMP_ROOT}"
 echo "[INFO] summary bugset root : ${SUMMARY_BUGSET_ROOT}"

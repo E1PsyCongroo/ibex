@@ -1,358 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage() {
-  cat >&2 <<'EOF'
-Usage:
-  run_bugset_sbfl.sh --all <bugset_root> [options]
-  run_bugset_sbfl.sh --case <case_dir_or_diff> [options]
-
-Options:
-  -j, --jobs <N>        Parallel jobs, default: nproc
-  -t, --tmp <DIR>       Temporary root directory, default: /tmp/run_bugset_sbfl
-  -l, --logs <DIR>      Logs root directory, default: ./logs
-  -w, --workdir <DIR>   Ibex workdir, default: $IBEX_HOME or current directory
-  --keep-workdir        Keep per-case temporary workdirs for debugging
-  --disassemble         Disassemble ELF files under each logdir after SBFL, default: disabled
-
-SBFL binary options:
-  --sbfl-bin <PATH>             SBFL binary path relative to workdir, or absolute
-                                default: build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
-  -f, --fuzzing                 Pass -f/--fuzzing to SBFL, default: enabled
-  -r, --reduce-insts, --reduce  Pass -r/--reduce-insts to SBFL, default: disabled
-  --reduce-cover                Pass --reduce-cover to SBFL, default: disabled
-  -c, --coverage <COVERAGE>     SBFL coverage, default: verilator.branch,verilator.line
-  -s, --state <STATE>           SBFL state, default: PCState,ArchIntRegState,CSRState
-  --base-mutator                Use baseline random mutator instead of last-window mutator, default: disabled
-  --max-run-timeout <N>         SBFL max run timeout, default: 60
-  --max-iters <N>               SBFL max iterations, default: 50
-  --top-pass <N>                SBFL top pass, default: 50
-  --selection <SELECTION>       SBFL pass case selection, default: sort
-                                possible values: random, sort
-  --top-sus <N>                 SBFL top suspicious blocks, default: 50
-  --corpus-input <PATH>         SBFL corpus input, default: examples/sw/benchmarks/coremark/coremark.elf
-  --save-reduce                 Pass --save-reduce to SBFL, default: disable
-  --save-trace                  Pass --save-trace to SBFL, default: disabled
-  --tracker-window-size <N>     SBFL tracker window size, default: 20
-  --mutator-window-size <N>     SBFL mutator window size, default: 20
-  --mutator-weight-strategy <S> SBFL mutator weight strategy, default: uniform
-                                possible values: uniform, tail_linear, tail_quad, head_linear, head_quad
-  --cover-distance-weight       SBFL cover distance weight, default: 0.5
-  --rtl-path <PATH>             SBFL RTL path, default: <case_workdir>/rtl
-  --include-paths <PATHS>       SBFL include paths, default: Ibex prim/dv_utils include paths in case workdir
-  --top-module <MODULE>         SBFL top module, default: ibex_core
-  --top-scope <SCOPE>           SBFL top scope, default: TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core
-  --metric <METRIC>             SBFL metric, default: ochiai
-  --repeat <N>                  SBFL repeat, default: 1
-  --auto-exit                   Pass --auto-exit to SBFL, default: disabled
-  --                            Remaining args are passed as SBFL EXTRA_ARGS after SBFL's own --
-
-  -h, --help                    Show this help
-
-Examples:
-  run_bugset_sbfl.sh --all bugset -j 8
-  run_bugset_sbfl.sh --case bugset/dataset_0/0
-  run_bugset_sbfl.sh --case bugset/dataset_0/0/ibex_decoder.sv.diff
-  run_bugset_sbfl.sh --all dataset -j 4 -t /tmp/ibex_sbfl_tmp -l ./logs
-  run_bugset_sbfl.sh --case bugset/dataset_0/0 --max-iters 20 --top-sus 30 -- -c 10000000
-  run_bugset_sbfl.sh --all bugset -j 8 --disassemble
-EOF
+bugset_main() {
+is_nonnegative_number() {
+  [[ "$1" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]
 }
 
-MODE=""
-TARGET=""
+validate_probability() {
+  local name="$1"
+  local value="$2"
 
-JOBS="$(nproc 2>/dev/null || echo 1)"
-TMP_ROOT=""
-LOGS_ROOT="./logs"
-KEEP_WORKDIR=0
-DO_DISASSEMBLE=0
-IBEX_HOME="${IBEX_HOME:-$(pwd)}"
-
-SBFL_BIN="build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system"
-SBFL_FUZZING=1
-SBFL_REDUCE=0
-SBFL_REDUCE_COVER=0
-SBFL_COVERAGE="verilator.branch,verilator.line"
-SBFL_STATE="PCState,ArchIntRegState,CSRState"
-SBFL_BASE_MUTATOR=0
-SBFL_MAX_RUN_TIMEOUT=60
-SBFL_MAX_ITERS=50
-SBFL_TOP_PASS=50
-SBFL_SELECTION="sort"
-SBFL_TOP_SUS=50
-SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
-SBFL_SAVE_REDUCE=1
-SBFL_SAVE_TRACE=0
-SBFL_TRACKER_WINDOW_SIZE=20
-SBFL_MUTATOR_WINDOW_SIZE=20
-SBFL_MUTATOR_WEIGHT_STRATEGY="uniform"
-SBFL_COVER_DISTANCE_WEIGHT=0.5
-SBFL_RTL_PATH=""
-SBFL_INCLUDE_PATHS=""
-SBFL_TOP_MODULE="ibex_core"
-SBFL_TOP_SCOPE="TOP.ibex_simple_system.u_top.u_ibex_top.u_ibex_core"
-SBFL_METRIC="ochiai"
-SBFL_REPEAT=1
-SBFL_AUTO_EXIT=0
-SBFL_EXTRA_ARGS=(-c 5000000)
-
-while [[ "$#" -gt 0 ]]; do
-  case "$1" in
-  --all)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    MODE="all"
-    TARGET="$2"
-    shift 2
-    ;;
-  --case)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    MODE="case"
-    TARGET="$2"
-    shift 2
-    ;;
-  -j | --jobs)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    JOBS="$2"
-    shift 2
-    ;;
-  -t | --tmp)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    TMP_ROOT="$2"
-    shift 2
-    ;;
-  -l | --logs)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    LOGS_ROOT="$2"
-    shift 2
-    ;;
-  -w | --workdir)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    IBEX_HOME="$2"
-    shift 2
-    ;;
-  --keep-workdir)
-    KEEP_WORKDIR=1
-    shift
-    ;;
-  --disassemble)
-    DO_DISASSEMBLE=1
-    shift
-    ;;
-  --sbfl-bin)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_BIN="$2"
-    shift 2
-    ;;
-  -f | --fuzzing)
-    SBFL_FUZZING=1
-    shift
-    ;;
-  -r | --reduce | --reduce-insts)
-    SBFL_REDUCE=1
-    shift
-    ;;
-  --reduce-cover)
-    SBFL_REDUCE_COVER=1
-    shift
-    ;;
-  -c | --coverage)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_COVERAGE="$2"
-    shift 2
-    ;;
-  -s | --state)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_STATE="$2"
-    shift 2
-    ;;
-  --base-mutator)
-    SBFL_BASE_MUTATOR=1
-    shift
-    ;;
-  --max-run-timeout)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_MAX_RUN_TIMEOUT="$2"
-    shift 2
-    ;;
-  --max-iters)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_MAX_ITERS="$2"
-    shift 2
-    ;;
-  --top-pass)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_TOP_PASS="$2"
-    shift 2
-    ;;
-  --selection)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_SELECTION="$2"
-    shift 2
-    ;;
-  --top-sus)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_TOP_SUS="$2"
-    shift 2
-    ;;
-  --corpus-input)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_CORPUS_INPUT="$2"
-    shift 2
-    ;;
-  --save-reduce)
-    SBFL_SAVE_REDUCE=1
-    shift
-    ;;
-  --save-trace)
-    SBFL_SAVE_TRACE=1
-    shift
-    ;;
-  --tracker-window-size)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_TRACKER_WINDOW_SIZE="$2"
-    shift 2
-    ;;
-  --mutator-window-size)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_MUTATOR_WINDOW_SIZE="$2"
-    shift 2
-    ;;
-  --cover-distance-weight)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_COVER_DISTANCE_WEIGHT="$2"
-    shift 2
-    ;;
-  --mutator-weight-strategy)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_MUTATOR_WEIGHT_STRATEGY="$2"
-    shift 2
-    ;;
-  --rtl-path)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_RTL_PATH="$2"
-    shift 2
-    ;;
-  --include-paths)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_INCLUDE_PATHS="$2"
-    shift 2
-    ;;
-  --top-module)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_TOP_MODULE="$2"
-    shift 2
-    ;;
-  --top-scope)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_TOP_SCOPE="$2"
-    shift 2
-    ;;
-  --metric)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_METRIC="$2"
-    shift 2
-    ;;
-  --repeat)
-    [[ "$#" -ge 2 ]] || {
-      usage
-      exit 1
-    }
-    SBFL_REPEAT="$2"
-    shift 2
-    ;;
-  --auto-exit)
-    SBFL_AUTO_EXIT=1
-    shift
-    ;;
-  --)
-    shift
-    SBFL_EXTRA_ARGS=("$@")
-    break
-    ;;
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  *)
-    echo "[ERROR] unknown argument: $1" >&2
-    usage
+  if ! is_nonnegative_number "${value}" || ! awk -v value="${value}" 'BEGIN { exit !(value >= 0 && value <= 1) }'; then
+    echo "[ERROR] ${name} must be in range [0, 1]: ${value}" >&2
     exit 1
-    ;;
-  esac
-done
+  fi
+}
 
 if [[ -z "${MODE}" || -z "${TARGET}" ]]; then
   usage
@@ -369,9 +31,7 @@ for pair in \
   "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}" \
   "SBFL_TOP_PASS:${SBFL_TOP_PASS}" \
   "SBFL_TOP_SUS:${SBFL_TOP_SUS}" \
-  "SBFL_TRACKER_WINDOW_SIZE:${SBFL_TRACKER_WINDOW_SIZE}" \
-  "SBFL_MUTATOR_WINDOW_SIZE:${SBFL_MUTATOR_WINDOW_SIZE}" \
-  "SBFL_REPEAT:${SBFL_REPEAT}"; do
+  "SBFL_TRACKER_WINDOW_SIZE:${SBFL_TRACKER_WINDOW_SIZE}"; do
   name="${pair%%:*}"
   value="${pair#*:}"
   if ! [[ "${value}" =~ ^[0-9]+$ ]] || ((value <= 0)); then
@@ -380,15 +40,40 @@ for pair in \
   fi
 done
 
-case "${SBFL_MUTATOR_WEIGHT_STRATEGY}" in
-uniform | tail_linear | tail_quad | head_linear | head_quad)
+case "${SBFL_MODE}" in
+psbfl)
+  if ! [[ "${SBFL_MUTATOR_WINDOW_SIZE}" =~ ^[0-9]+$ ]] || ((SBFL_MUTATOR_WINDOW_SIZE <= 0)); then
+    echo "[ERROR] SBFL_MUTATOR_WINDOW_SIZE must be a positive integer: ${SBFL_MUTATOR_WINDOW_SIZE}" >&2
+    exit 1
+  fi
+  case "${SBFL_MUTATOR_WEIGHT_STRATEGY}" in
+  uniform | tail_linear | tail_quad | head_linear | head_quad) ;;
+  *)
+    echo "[ERROR] invalid mutator weight strategy: ${SBFL_MUTATOR_WEIGHT_STRATEGY}" >&2
+    exit 1
+    ;;
+  esac
+  ;;
+withw)
+  if ! [[ "${SBFL_MAX_CORPUS_SIZE}" =~ ^[0-9]+$ ]] || ((SBFL_MAX_CORPUS_SIZE <= 0)); then
+    echo "[ERROR] SBFL_MAX_CORPUS_SIZE must be a positive integer: ${SBFL_MAX_CORPUS_SIZE}" >&2
+    exit 1
+  fi
+  validate_probability SBFL_INIT_SEED_RATE "${SBFL_INIT_SEED_RATE}"
+  validate_probability SBFL_MUTATE_RATE "${SBFL_MUTATE_RATE}"
+  validate_probability SBFL_PRIORITY_ALPHA "${SBFL_PRIORITY_ALPHA}"
+  if ! is_nonnegative_number "${SBFL_FAILED_REWARD}"; then
+    echo "[ERROR] SBFL_FAILED_REWARD must be non-negative: ${SBFL_FAILED_REWARD}" >&2
+    exit 1
+  fi
   ;;
 *)
-  echo "[ERROR] SBFL_MUTATOR_WEIGHT_STRATEGY has invalid value: ${SBFL_MUTATOR_WEIGHT_STRATEGY}" >&2
-  echo "        expected one of: uniform, tail_linear, tail_quad, head_linear, head_quad" >&2
+  echo "[ERROR] unsupported SBFL mode: ${SBFL_MODE}" >&2
   exit 1
   ;;
 esac
+
+validate_probability SBFL_COVER_DISTANCE_WEIGHT "${SBFL_COVER_DISTANCE_WEIGHT}"
 
 case "${SBFL_SELECTION}" in
 random | sort)
@@ -409,7 +94,7 @@ IBEX_HOME="$(realpath "${IBEX_HOME}")"
 TARGET="$(realpath "${TARGET}")"
 
 if [[ -z "${TMP_ROOT}" ]]; then
-  TMP_ROOT="${TMPDIR:-/tmp}/run_bugset_sbfl"
+  TMP_ROOT="${TMPDIR:-/tmp}/${SCRIPT_NAME%.sh}"
 fi
 
 mkdir -p "${TMP_ROOT}"
@@ -747,11 +432,11 @@ run_one_diff() (
   rtl_path="${SBFL_RTL_PATH:-${workdir}/rtl}"
   include_paths="${SBFL_INCLUDE_PATHS:-${workdir}/vendor/lowrisc_ip/ip/prim/rtl/,${workdir}/vendor/lowrisc_ip/dv/sv/dv_utils/}"
 
-  local sbfl_args=()
-
-  if [[ "${SBFL_FUZZING}" -eq 1 ]]; then
-    sbfl_args+=(-f)
-  fi
+  local sbfl_args=(
+    -c "${SBFL_COVERAGE}"
+    -s "${SBFL_STATE}"
+    sbfl
+  )
 
   if [[ "${SBFL_REDUCE}" -eq 1 ]]; then
     sbfl_args+=(--reduce-insts)
@@ -762,24 +447,16 @@ run_one_diff() (
   fi
 
   sbfl_args+=(
-    -c "${SBFL_COVERAGE}"
-    -s "${SBFL_STATE}"
     --max-run-timeout "${SBFL_MAX_RUN_TIMEOUT}"
     --max-iters "${SBFL_MAX_ITERS}"
     --top-pass "${SBFL_TOP_PASS}"
     --selection "${SBFL_SELECTION}"
     --top-sus "${SBFL_TOP_SUS}"
     --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
-    --mutator-window-size "${SBFL_MUTATOR_WINDOW_SIZE}"
-    --mutator-weight-strategy "${SBFL_MUTATOR_WEIGHT_STRATEGY}"
     --cover-distance-weight "${SBFL_COVER_DISTANCE_WEIGHT}"
     --corpus-input "${SBFL_CORPUS_INPUT}"
     --output "${logdir}"
   )
-
-  if [[ "${SBFL_BASE_MUTATOR}" -eq 1 ]]; then
-    sbfl_args+=(--base-mutator)
-  fi
 
   if [[ "${SBFL_SAVE_REDUCE}" -eq 1 ]]; then
     sbfl_args+=(--save-reduce)
@@ -809,33 +486,40 @@ run_one_diff() (
     sbfl_args+=(--metric "${SBFL_METRIC}")
   fi
 
-  if [[ -n "${SBFL_REPEAT}" ]]; then
-    sbfl_args+=(--repeat "${SBFL_REPEAT}")
-  fi
+  case "${SBFL_MODE}" in
+  psbfl)
+    sbfl_args+=(
+      psbfl
+      --mutator-window-size "${SBFL_MUTATOR_WINDOW_SIZE}"
+      --mutator-weight-strategy "${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+    )
+    ;;
+  withw)
+    sbfl_args+=(
+      wit-hw
+      --max-corpus-size "${SBFL_MAX_CORPUS_SIZE}"
+      --init-seed-rate "${SBFL_INIT_SEED_RATE}"
+      --mutate-rate "${SBFL_MUTATE_RATE}"
+      --priority-alpha "${SBFL_PRIORITY_ALPHA}"
+      --failed-reward "${SBFL_FAILED_REWARD}"
+    )
+    ;;
+  esac
 
-  if [[ "${SBFL_AUTO_EXIT}" -eq 1 ]]; then
-    sbfl_args+=(--auto-exit)
+  if ((${#SBFL_EXTRA_ARGS[@]} > 0)); then
+    sbfl_args+=(-- "${SBFL_EXTRA_ARGS[@]}")
   fi
 
   {
     printf '[RUN]'
     printf ' %q' "${sbfl_exe}" "${sbfl_args[@]}"
-    if ((${#SBFL_EXTRA_ARGS[@]} > 0)); then
-      printf ' --'
-      printf ' %q' "${SBFL_EXTRA_ARGS[@]}"
-    fi
     printf '\n'
   } >>"${logdir}/run.log"
 
   set +e
   (
     cd "${workdir}"
-
-    if ((${#SBFL_EXTRA_ARGS[@]} > 0)); then
-      "${sbfl_exe}" "${sbfl_args[@]}" -- "${SBFL_EXTRA_ARGS[@]}"
-    else
-      "${sbfl_exe}" "${sbfl_args[@]}"
-    fi
+    "${sbfl_exe}" "${sbfl_args[@]}"
   ) >"${logdir}/sbfl.log" 2>&1
   local sbfl_status=$?
   set -e
@@ -886,9 +570,16 @@ run_all_cases() {
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
   echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] SBFL mode   : ${SBFL_MODE}"
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
-  echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
-  echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  if [[ "${SBFL_MODE}" == "psbfl" ]]; then
+    echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
+    echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  else
+    echo "[INFO] corpus limit: ${SBFL_MAX_CORPUS_SIZE}"
+    echo "[INFO] seed rate   : ${SBFL_INIT_SEED_RATE}"
+    echo "[INFO] mutate rate : ${SBFL_MUTATE_RATE}"
+  fi
   echo "[INFO] selection   : ${SBFL_SELECTION}"
   echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
@@ -921,9 +612,16 @@ run_single_case() {
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
   echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] SBFL mode   : ${SBFL_MODE}"
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
-  echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
-  echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  if [[ "${SBFL_MODE}" == "psbfl" ]]; then
+    echo "[INFO] mutator win : ${SBFL_MUTATOR_WINDOW_SIZE}"
+    echo "[INFO] mutator wgt : ${SBFL_MUTATOR_WEIGHT_STRATEGY}"
+  else
+    echo "[INFO] corpus limit: ${SBFL_MAX_CORPUS_SIZE}"
+    echo "[INFO] seed rate   : ${SBFL_INIT_SEED_RATE}"
+    echo "[INFO] mutate rate : ${SBFL_MUTATE_RATE}"
+  fi
   echo "[INFO] selection   : ${SBFL_SELECTION}"
   echo "[INFO] cover wgt   : ${SBFL_COVER_DISTANCE_WEIGHT}"
 
@@ -1009,3 +707,4 @@ main() {
 }
 
 main
+}
