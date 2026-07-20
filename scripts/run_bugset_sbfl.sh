@@ -2,6 +2,9 @@
 set -euo pipefail
 
 bugset_main() {
+SBFL_SELECTION_DIVERSITY_WEIGHT="${SBFL_SELECTION_DIVERSITY_WEIGHT:-0.4}"
+SBFL_SELECTION_POOL_FACTOR="${SBFL_SELECTION_POOL_FACTOR:-3}"
+
 is_nonnegative_number() {
   [[ "$1" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]
 }
@@ -74,13 +77,19 @@ withw)
 esac
 
 validate_probability SBFL_COVER_DISTANCE_WEIGHT "${SBFL_COVER_DISTANCE_WEIGHT}"
+validate_probability SBFL_SELECTION_DIVERSITY_WEIGHT "${SBFL_SELECTION_DIVERSITY_WEIGHT}"
+
+if ! [[ "${SBFL_SELECTION_POOL_FACTOR}" =~ ^[0-9]+$ ]] || ((SBFL_SELECTION_POOL_FACTOR <= 0)); then
+  echo "[ERROR] SBFL_SELECTION_POOL_FACTOR must be a positive integer: ${SBFL_SELECTION_POOL_FACTOR}" >&2
+  exit 1
+fi
 
 case "${SBFL_SELECTION}" in
-random | sort)
+random | sort | diverse)
   ;;
 *)
   echo "[ERROR] SBFL_SELECTION has invalid value: ${SBFL_SELECTION}" >&2
-  echo "        expected one of: random, sort" >&2
+  echo "        expected one of: random, sort, diverse" >&2
   exit 1
   ;;
 esac
@@ -451,6 +460,8 @@ run_one_diff() (
     --max-iters "${SBFL_MAX_ITERS}"
     --top-pass "${SBFL_TOP_PASS}"
     --selection "${SBFL_SELECTION}"
+    --selection-diversity-weight "${SBFL_SELECTION_DIVERSITY_WEIGHT}"
+    --selection-pool-factor "${SBFL_SELECTION_POOL_FACTOR}"
     --top-sus "${SBFL_TOP_SUS}"
     --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
     --cover-distance-weight "${SBFL_COVER_DISTANCE_WEIGHT}"

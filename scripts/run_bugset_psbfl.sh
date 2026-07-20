@@ -29,7 +29,12 @@ Common SBFL options:
   --max-run-timeout <N>             Default: 60
   --max-iters <N>                   Default: 50
   --top-pass <N>                    Default: 50
-  --selection <random|sort>         Default: sort
+  --selection <STRATEGY>            Default: sort
+                                      random, sort, diverse
+  --selection-diversity-weight <W>  Diverse proximity/diversity tradeoff
+                                      Default: 0.4
+  --selection-pool-factor <N>       Diverse near-fail pool multiplier
+                                      Default: 3
   --top-sus <N>                     Default: 50
   --corpus-input <PATH>             Initial ELF input
   --save-reduce                     Save reduced input, default: enabled
@@ -81,6 +86,8 @@ SBFL_MAX_RUN_TIMEOUT=60
 SBFL_MAX_ITERS=50
 SBFL_TOP_PASS=50
 SBFL_SELECTION="sort"
+SBFL_SELECTION_DIVERSITY_WEIGHT=0.4
+SBFL_SELECTION_POOL_FACTOR=3
 SBFL_TOP_SUS=50
 SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
 SBFL_SAVE_REDUCE=1
@@ -115,6 +122,8 @@ while (($#)); do
   --max-iters) need_value "$@"; SBFL_MAX_ITERS="$2"; shift 2 ;;
   --top-pass) need_value "$@"; SBFL_TOP_PASS="$2"; shift 2 ;;
   --selection) need_value "$@"; SBFL_SELECTION="$2"; shift 2 ;;
+  --selection-diversity-weight) need_value "$@"; SBFL_SELECTION_DIVERSITY_WEIGHT="$2"; shift 2 ;;
+  --selection-pool-factor) need_value "$@"; SBFL_SELECTION_POOL_FACTOR="$2"; shift 2 ;;
   --top-sus) need_value "$@"; SBFL_TOP_SUS="$2"; shift 2 ;;
   --corpus-input) need_value "$@"; SBFL_CORPUS_INPUT="$2"; shift 2 ;;
   --save-reduce) SBFL_SAVE_REDUCE=1; shift ;;
