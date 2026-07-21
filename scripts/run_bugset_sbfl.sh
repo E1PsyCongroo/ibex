@@ -32,8 +32,6 @@ fi
 for pair in \
   "SBFL_MAX_RUN_TIMEOUT:${SBFL_MAX_RUN_TIMEOUT}" \
   "SBFL_MAX_ITERS:${SBFL_MAX_ITERS}" \
-  "SBFL_TOP_PASS:${SBFL_TOP_PASS}" \
-  "SBFL_TOP_SUS:${SBFL_TOP_SUS}" \
   "SBFL_TRACKER_WINDOW_SIZE:${SBFL_TRACKER_WINDOW_SIZE}"; do
   name="${pair%%:*}"
   value="${pair#*:}"
@@ -42,6 +40,53 @@ for pair in \
     exit 1
   fi
 done
+
+for pair in \
+  "SBFL_TOP_PASS:${SBFL_TOP_PASS}" \
+  "SBFL_TOP_SUS:${SBFL_TOP_SUS}"; do
+  name="${pair%%:*}"
+  value="${pair#*:}"
+  if ! [[ "${value}" =~ ^[0-9]+$ ]]; then
+    echo "[ERROR] ${name} must be a non-negative integer: ${value}" >&2
+    exit 1
+  fi
+done
+
+if [[ -n "${SBFL_RESUME_CORPUS}" && "${SBFL_INPUT_EXPLICIT}" -eq 1 ]]; then
+  echo "[ERROR] --input conflicts with --resume-corpus" >&2
+  exit 1
+fi
+
+if [[ -n "${SBFL_RESUME_CORPUS}" && "${SBFL_REDUCE}" -eq 1 ]]; then
+  echo "[ERROR] --reduce-insts conflicts with --resume-corpus" >&2
+  exit 1
+fi
+
+if [[ "${SBFL_SAVE_REDUCE}" -eq 1 && "${SBFL_REDUCE}" -ne 1 ]]; then
+  echo "[ERROR] --save-reduce requires --reduce-insts" >&2
+  exit 1
+fi
+
+if ! [[ "${SBFL_SAVE_CORPUS}" =~ ^[01]$ ]]; then
+  echo "[ERROR] SBFL_SAVE_CORPUS must be a boolean (0 or 1): ${SBFL_SAVE_CORPUS}" >&2
+  exit 1
+fi
+
+if [[ -z "${SBFL_RESUME_CORPUS}" && -z "${SBFL_INPUT}" ]]; then
+  echo "[ERROR] either --input or --resume-corpus is required" >&2
+  exit 1
+fi
+
+if [[ -n "${SBFL_CHECKPOINT_INTERVAL}" ]]; then
+  if ! [[ "${SBFL_CHECKPOINT_INTERVAL}" =~ ^[0-9]+$ ]] || ((SBFL_CHECKPOINT_INTERVAL <= 0)); then
+    echo "[ERROR] SBFL_CHECKPOINT_INTERVAL must be a positive integer: ${SBFL_CHECKPOINT_INTERVAL}" >&2
+    exit 1
+  fi
+  if [[ "${SBFL_SAVE_CORPUS}" -ne 1 ]]; then
+    echo "[ERROR] --checkpoint-interval requires --save-corpus" >&2
+    exit 1
+  fi
+fi
 
 case "${SBFL_MODE}" in
 psbfl)
@@ -101,6 +146,26 @@ fi
 
 IBEX_HOME="$(realpath "${IBEX_HOME}")"
 TARGET="$(realpath "${TARGET}")"
+
+if [[ -z "${SBFL_RESUME_CORPUS}" ]]; then
+  local input_path
+  if [[ "${SBFL_INPUT_EXPLICIT}" -eq 1 || "${SBFL_INPUT}" = /* ]]; then
+    input_path="${SBFL_INPUT}"
+  else
+    input_path="${IBEX_HOME}/${SBFL_INPUT}"
+  fi
+
+  if ! SBFL_INPUT="$(realpath "${input_path}")"; then
+    echo "[ERROR] input path not found: ${input_path}" >&2
+    exit 1
+  fi
+else
+  local resume_corpus_path="${SBFL_RESUME_CORPUS}"
+  if ! SBFL_RESUME_CORPUS="$(realpath "${resume_corpus_path}")"; then
+    echo "[ERROR] resume corpus not found: ${resume_corpus_path}" >&2
+    exit 1
+  fi
+fi
 
 if [[ -z "${TMP_ROOT}" ]]; then
   TMP_ROOT="${TMPDIR:-/tmp}/${SCRIPT_NAME%.sh}"
@@ -194,21 +259,59 @@ append_result() {
 
 copy_workdir() {
   local dst="$1"
+  local source
+  local directory_sources=()
+  local root_core_files=()
 
   mkdir -p "${dst}"
 
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete \
-      --exclude '/build/' \
-      --exclude '/logs/' \
-      --exclude '/.git/' \
-      --exclude '/.git' \
-      --exclude '/target/' \
-      "${IBEX_HOME}/" "${dst}/"
-  else
-    cp -a "${IBEX_HOME}/." "${dst}/"
-    rm -rf -- "${dst}/build" "${dst}/logs" "${dst}/.git" "${dst}/target"
+  for source in dv vendor rtl shared examples util lint; do
+    if [[ ! -e "${IBEX_HOME}/${source}" ]]; then
+      echo "[ERROR] required workdir source not found: ${IBEX_HOME}/${source}" >&2
+      return 1
+    fi
+    directory_sources+=("${IBEX_HOME}/${source}")
+  done
+
+  for source in Cargo.lock Cargo.toml; do
+    if [[ ! -f "${IBEX_HOME}/${source}" ]]; then
+      echo "[ERROR] required workdir file not found: ${IBEX_HOME}/${source}" >&2
+      return 1
+    fi
+  done
+
+  mapfile -d '' -t root_core_files < <(
+    find "${IBEX_HOME}" \
+      -maxdepth 1 \
+      \( -type f -o -type l \) \
+      -name '*.core' \
+      -print0 | sort -z
+  )
+
+  if ((${#root_core_files[@]} == 0)); then
+    echo "[ERROR] no root-level .core files found under: ${IBEX_HOME}" >&2
+    return 1
   fi
+
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a -- "${directory_sources[@]}" "${dst}/"
+  else
+    cp -a -- "${directory_sources[@]}" "${dst}/"
+  fi
+
+  # Root build manifests and FuseSoC core files must stay at the workdir root.
+  cp -a -- \
+    "${IBEX_HOME}/Cargo.lock" \
+    "${IBEX_HOME}/Cargo.toml" \
+    "${root_core_files[@]}" \
+    "${dst}/"
+
+  for source in "${root_core_files[@]}"; do
+    if [[ ! -e "${dst}/$(basename "${source}")" ]]; then
+      echo "[ERROR] failed to copy root-level core file: ${source}" >&2
+      return 1
+    fi
+  done
 }
 
 cleanup_case_workdir() {
@@ -444,7 +547,7 @@ run_one_diff() (
   local sbfl_args=(
     -c "${SBFL_COVERAGE}"
     -s "${SBFL_STATE}"
-    sbfl
+    generation
   )
 
   if [[ "${SBFL_REDUCE}" -eq 1 ]]; then
@@ -465,16 +568,33 @@ run_one_diff() (
     --top-sus "${SBFL_TOP_SUS}"
     --tracker-window-size "${SBFL_TRACKER_WINDOW_SIZE}"
     --cover-distance-weight "${SBFL_COVER_DISTANCE_WEIGHT}"
-    --corpus-input "${SBFL_CORPUS_INPUT}"
     --output "${logdir}"
   )
+
+  if [[ -n "${SBFL_RESUME_CORPUS}" ]]; then
+    sbfl_args+=(--resume-corpus "${SBFL_RESUME_CORPUS}")
+  else
+    sbfl_args+=(--input "${SBFL_INPUT}")
+  fi
+
+  if [[ "${SBFL_SAVE_CORPUS}" -eq 1 ]]; then
+    sbfl_args+=(--save-corpus "${logdir}/saved_corpus")
+  fi
+
+  if [[ -n "${SBFL_CHECKPOINT_INTERVAL}" ]]; then
+    sbfl_args+=(--checkpoint-interval "${SBFL_CHECKPOINT_INTERVAL}")
+  fi
+
+  if [[ "${SBFL_GEN_ONLY}" -eq 1 ]]; then
+    sbfl_args+=(--gen-only)
+  fi
 
   if [[ "${SBFL_SAVE_REDUCE}" -eq 1 ]]; then
     sbfl_args+=(--save-reduce)
   fi
 
-  if [[ "${SBFL_SAVE_TRACE}" -eq 1 ]]; then
-    sbfl_args+=(--save-trace)
+  if [[ "${SBFL_SAVE_INTERMEDIATE}" -eq 1 ]]; then
+    sbfl_args+=(--save-intermediate)
   fi
 
   if [[ -n "${rtl_path}" ]]; then
@@ -580,7 +700,8 @@ run_all_cases() {
   echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
-  echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] save interm : ${SBFL_SAVE_INTERMEDIATE}"
+  echo "[INFO] save corpus : ${SBFL_SAVE_CORPUS}"
   echo "[INFO] SBFL mode   : ${SBFL_MODE}"
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   if [[ "${SBFL_MODE}" == "psbfl" ]]; then
@@ -622,7 +743,8 @@ run_single_case() {
   echo "[INFO] summary     : ${SUMMARY_FILE}"
   echo "[INFO] keep workdir: ${KEEP_WORKDIR}"
   echo "[INFO] disassemble : ${DO_DISASSEMBLE}"
-  echo "[INFO] save trace  : ${SBFL_SAVE_TRACE}"
+  echo "[INFO] save interm : ${SBFL_SAVE_INTERMEDIATE}"
+  echo "[INFO] save corpus : ${SBFL_SAVE_CORPUS}"
   echo "[INFO] SBFL mode   : ${SBFL_MODE}"
   echo "[INFO] tracker win : ${SBFL_TRACKER_WINDOW_SIZE}"
   if [[ "${SBFL_MODE}" == "psbfl" ]]; then

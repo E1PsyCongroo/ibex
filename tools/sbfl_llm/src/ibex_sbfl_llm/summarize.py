@@ -20,8 +20,8 @@ from .sbfl import (
     parse_rank,
     parse_status,
     parse_time,
-    read_elapsed_time,
-    read_fuzzing_time,
+    read_gen_time,
+    read_sbfl_time,
     resolve_bugcase_ref,
 )
 
@@ -31,8 +31,8 @@ SBFL_FIELDS = [
     "status",
     "top-k",
     "sus",
-    "elapsed_time",
-    "fuzzing_time",
+    "gen_time",
+    "sbfl_time",
 ]
 LLM_FIELDS = [
     "bugset",
@@ -54,8 +54,8 @@ LLM_FIELDS = [
     "lines",
     "reason",
     "llm_elapsed_time",
-    "elapsed_time",
-    "fuzzing_time",
+    "gen_time",
+    "sbfl_time",
     "llm_score",
     "normalized_sbfl_score",
     "final_score",
@@ -96,17 +96,17 @@ def _resolve_case(
     if parsed is None:
         return None
     bugcase, is_ok, csv_status = parsed
-    elapsed = read_elapsed_time(logdir)
-    fuzzing = read_fuzzing_time(logdir)
+    gen_time = read_gen_time(logdir)
+    sbfl_time = read_sbfl_time(logdir)
     resolved = resolve_bugcase_ref(bugset_root, bugcase)
     if resolved is None:
-        return bugcase, "", Path(), False, "ERROR(-1)", elapsed, fuzzing
+        return bugcase, "", Path(), False, "ERROR(-1)", gen_time, sbfl_time
     bugset, diff, case_dir, _ = resolved
-    return bugset, diff, case_dir, is_ok, csv_status, elapsed, fuzzing
+    return bugset, diff, case_dir, is_ok, csv_status, gen_time, sbfl_time
 
 
 def _sbfl_error_row(
-    bugset: str, diff: str, status: str, elapsed: str, fuzzing: str
+    bugset: str, diff: str, status: str, gen_time: str, sbfl_time: str
 ) -> dict[str, str]:
     return {
         "bugset": bugset,
@@ -114,8 +114,8 @@ def _sbfl_error_row(
         "status": status,
         "top-k": "",
         "sus": "",
-        "elapsed_time": elapsed,
-        "fuzzing_time": fuzzing,
+        "gen_time": gen_time,
+        "sbfl_time": sbfl_time,
     }
 
 
@@ -125,14 +125,14 @@ def process_sbfl_logdir(
     resolved = _resolve_case(bugset_root, logdir, status_path)
     if resolved is None:
         return None
-    bugset, diff, case_dir, is_ok, status, elapsed, fuzzing = resolved
+    bugset, diff, case_dir, is_ok, status, gen_time, sbfl_time = resolved
     if not is_ok:
-        return _sbfl_error_row(bugset, diff, status, elapsed, fuzzing)
+        return _sbfl_error_row(bugset, diff, status, gen_time, sbfl_time)
     bug_info = load_bug_info_from_case_dir(case_dir)
     result_log = logdir / "result.log"
     blocks_json = logdir / "blocks.json"
     if bug_info is None or not result_log.is_file() or not blocks_json.is_file():
-        return _sbfl_error_row(bugset, diff, "ERROR(-1)", elapsed, fuzzing)
+        return _sbfl_error_row(bugset, diff, "ERROR(-1)", gen_time, sbfl_time)
     ranked = parse_block_suspiciousness(result_log)
     if not ranked:
         top, sus = "over top-0", ""
@@ -144,8 +144,8 @@ def process_sbfl_logdir(
         "status": "OK",
         "top-k": top,
         "sus": sus,
-        "elapsed_time": elapsed,
-        "fuzzing_time": fuzzing,
+        "gen_time": gen_time,
+        "sbfl_time": sbfl_time,
     }
 
 
@@ -175,8 +175,8 @@ def compute_sbfl_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, float | i
         "top10": 0,
         "top20": 0,
         "mar_sum": 0.0,
-        "elapsed_sum": 0.0,
-        "fuzzing_sum": 0.0,
+        "gen_sum": 0.0,
+        "sbfl_sum": 0.0,
         "time_count": 0,
     }
     for row in rows:
@@ -188,10 +188,10 @@ def compute_sbfl_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, float | i
             for limit, field in ((1, "top1"), (5, "top5"), (10, "top10"), (20, "top20")):
                 result[field] += rank <= limit
         result["mar_sum"] += min(rank, 11) if rank is not None else 11
-        if row.get("elapsed_time"):
-            result["elapsed_sum"] += parse_time(row["elapsed_time"])
-        if row.get("fuzzing_time"):
-            result["fuzzing_sum"] += parse_time(row["fuzzing_time"])
+        if row.get("gen_time"):
+            result["gen_sum"] += parse_time(row["gen_time"])
+        if row.get("gen_time"):
+            result["sbfl_sum"] += parse_time(row["sbfl_time"])
         result["time_count"] += 1
     return result
 
@@ -212,12 +212,12 @@ def print_sbfl_stats(rows: Iterable[Mapping[str, str]]) -> None:
     print(f"MAR@10          : {mar}")
     time_count = int(stats["time_count"])
     if time_count:
-        print(f"Average elapsed : {float(stats['elapsed_sum']) / time_count:.2f} s")
-        print(f"Average fuzzing : {float(stats['fuzzing_sum']) / time_count:.2f} s")
+        print(f"Average GEN     : {float(stats['gen_sum']) / time_count:.2f} s")
+        print(f"Average SBFL    : {float(stats['sbfl_sum']) / time_count:.2f} s")
 
 
 def _blank_llm_row(
-    bugset: str, diff: str, status: str, elapsed: str, fuzzing: str
+    bugset: str, diff: str, status: str, gen_time: str, sbfl_time: str
 ) -> dict[str, str]:
     row = {field: "" for field in LLM_FIELDS}
     row.update(
@@ -225,8 +225,8 @@ def _blank_llm_row(
             "bugset": bugset,
             "diff": diff,
             "status": status,
-            "elapsed_time": elapsed,
-            "fuzzing_time": fuzzing,
+            "gen_time": gen_time,
+            "sbfl_time": sbfl_time,
         }
     )
     return row
@@ -268,28 +268,28 @@ def process_llm_logdir(
     resolved = _resolve_case(bugset_root, logdir, status_path)
     if resolved is None:
         return None
-    bugset, diff, case_dir, is_ok, status, elapsed, fuzzing = resolved
+    bugset, diff, case_dir, is_ok, status, gen_time, sbfl_time = resolved
     if not is_ok:
-        return _blank_llm_row(bugset, diff, status, elapsed, fuzzing)
+        return _blank_llm_row(bugset, diff, status, gen_time, sbfl_time)
     bug_info = load_bug_info_from_case_dir(case_dir)
     if bug_info is None:
-        return _blank_llm_row(bugset, diff, "ERROR(-1)", elapsed, fuzzing)
+        return _blank_llm_row(bugset, diff, "ERROR(-1)", gen_time, sbfl_time)
     sbfl_top, _ = _compute_sbfl_rank(logdir, bug_info, line_window)
     rerank_path = logdir / rerank_filename
     if not rerank_path.is_file():
-        row = _blank_llm_row(bugset, diff, "LLM_MISSING", elapsed, fuzzing)
+        row = _blank_llm_row(bugset, diff, "LLM_MISSING", gen_time, sbfl_time)
         row["sbfl_top-k"] = sbfl_top
         return row
     try:
         result = load_rerank_result(rerank_path)
     except (OSError, SummaryError) as exc:
         print(f"[WARN] {exc}", file=sys.stderr)
-        row = _blank_llm_row(bugset, diff, "LLM_ERROR", elapsed, fuzzing)
+        row = _blank_llm_row(bugset, diff, "LLM_ERROR", gen_time, sbfl_time)
         row["sbfl_top-k"] = sbfl_top
         return row
 
     llm_top, matched = find_reranked_bug_rank(bug_info, result["rankings"], line_window)
-    row = _blank_llm_row(bugset, diff, "OK", elapsed, fuzzing)
+    row = _blank_llm_row(bugset, diff, "OK", gen_time, sbfl_time)
     config = result.get("config", {}) if isinstance(result.get("config"), Mapping) else {}
     request = result.get("request", {}) if isinstance(result.get("request"), Mapping) else {}
     usage = request.get("usage", {}) if isinstance(request.get("usage"), Mapping) else {}
@@ -367,7 +367,7 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
     ok_rows = [row for row in row_list if row.get("status") == "OK"]
     top1 = top5 = top10 = improved = unchanged = worsened = 0
     reciprocal = mar10 = 0.0
-    timings: dict[str, list[float]] = {"llm": [], "elapsed": [], "fuzzing": []}
+    timings: dict[str, list[float]] = {"llm": [], "gen": [], "sbfl": []}
     for row in ok_rows:
         rank = parse_rank(row.get("top-k", ""))
         sbfl_rank = parse_rank(row.get("sbfl_top-k", ""))
@@ -387,8 +387,8 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
             worsened += rank > sbfl_rank
         time_fields = (
             ("llm_elapsed_time", "llm"),
-            ("elapsed_time", "elapsed"),
-            ("fuzzing_time", "fuzzing"),
+            ("gen_time", "gen"),
+            ("sbfl_time", "sbfl"),
         )
         for field, key in time_fields:
             if row.get(field):
@@ -408,11 +408,11 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
         "unchanged": unchanged,
         "worsened": worsened,
         "average_llm": sum(timings["llm"]) / len(timings["llm"]) if timings["llm"] else None,
-        "average_elapsed": (
-            sum(timings["elapsed"]) / len(timings["elapsed"]) if timings["elapsed"] else None
+        "average_gen": (
+            sum(timings["gen"]) / len(timings["gen"]) if timings["gen"] else None
         ),
-        "average_fuzzing": (
-            sum(timings["fuzzing"]) / len(timings["fuzzing"]) if timings["fuzzing"] else None
+        "average_sbfl": (
+            sum(timings["sbfl"]) / len(timings["sbfl"]) if timings["sbfl"] else None
         ),
     }
 
@@ -442,8 +442,8 @@ def print_llm_stats(rows: Iterable[Mapping[str, str]]) -> None:
     print(f"{'Worsened':<20}: {stats['worsened']}")
     average_fields = (
         ("Average LLM", "average_llm"),
-        ("Average SBFL", "average_elapsed"),
-        ("Average fuzzing", "average_fuzzing"),
+        ("Average GEN", "average_gen"),
+        ("Average SBFL", "average_sbfl"),
     )
     for label, field in average_fields:
         value = stats[field]

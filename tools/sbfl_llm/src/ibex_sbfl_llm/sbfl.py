@@ -146,13 +146,13 @@ def build_candidates(
     return candidates
 
 
-def read_fuzzing_time(logdir: Path) -> str:
-    path = logdir / "fuzzing_time.txt"
+def read_gen_time(logdir: Path) -> str:
+    path = logdir / "elapsed" / "gen_time.txt"
     return read_text(path).strip() if path.is_file() else ""
 
 
-def read_elapsed_time(logdir: Path) -> str:
-    path = logdir / "sbfl_time.txt"
+def read_sbfl_time(logdir: Path) -> str:
+    path = logdir / "elapsed" / "sbfl_time.txt"
     return read_text(path).strip() if path.is_file() else ""
 
 

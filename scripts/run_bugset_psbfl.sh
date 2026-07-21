@@ -26,19 +26,23 @@ Common SBFL options:
   --reduce-cover                    Reduce coverage
   -c, --coverage <COVERAGE>         Coverage types
   -s, --state <STATE>               State types
-  --max-run-timeout <N>             Default: 60
-  --max-iters <N>                   Default: 50
-  --top-pass <N>                    Default: 50
+  --max-run-timeout <N>             Default: 10
+  --max-iters <N>                   Default: 100
+  --top-pass <N>                    Default: 10
   --selection <STRATEGY>            Default: sort
                                       random, sort, diverse
   --selection-diversity-weight <W>  Diverse proximity/diversity tradeoff
                                       Default: 0.4
   --selection-pool-factor <N>       Diverse near-fail pool multiplier
                                       Default: 3
-  --top-sus <N>                     Default: 50
-  --corpus-input <PATH>             Initial ELF input
-  --save-reduce                     Save reduced input, default: enabled
-  --save-trace                      Save execution traces
+  --top-sus <N>                     Default: 10
+  --input <PATH>                    Initial ELF input; resolved to an absolute path
+  --resume-corpus <FILE>            Resume a saved corpus instead of --input
+  --save-corpus                     Save checkpoint as <case_logdir>/saved_corpus
+  --checkpoint-interval <N>         Save every N iterations; requires --save-corpus
+  --gen-only                        Skip analysis after generation
+  --save-reduce                     Save reduced input; requires --reduce-insts
+  --save-intermediate               Save testcase metadata and execution traces
   --tracker-window-size <N>         Default: 20
   --cover-distance-weight <W>       Default: 0.5
   --rtl-path <PATH>                 Default: <case_workdir>/rtl
@@ -82,16 +86,21 @@ SBFL_REDUCE=0
 SBFL_REDUCE_COVER=0
 SBFL_COVERAGE="verilator.branch,verilator.line"
 SBFL_STATE="PCState,ArchIntRegState,CSRState"
-SBFL_MAX_RUN_TIMEOUT=60
-SBFL_MAX_ITERS=50
-SBFL_TOP_PASS=50
+SBFL_MAX_RUN_TIMEOUT=10
+SBFL_MAX_ITERS=100
+SBFL_TOP_PASS=10
 SBFL_SELECTION="sort"
 SBFL_SELECTION_DIVERSITY_WEIGHT=0.4
 SBFL_SELECTION_POOL_FACTOR=3
-SBFL_TOP_SUS=50
-SBFL_CORPUS_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
-SBFL_SAVE_REDUCE=1
-SBFL_SAVE_TRACE=0
+SBFL_TOP_SUS=10
+SBFL_INPUT="examples/sw/benchmarks/coremark/coremark.elf"
+SBFL_INPUT_EXPLICIT=0
+SBFL_RESUME_CORPUS=""
+SBFL_SAVE_CORPUS=0
+SBFL_CHECKPOINT_INTERVAL=""
+SBFL_GEN_ONLY=0
+SBFL_SAVE_REDUCE=0
+SBFL_SAVE_INTERMEDIATE=0
 SBFL_TRACKER_WINDOW_SIZE=20
 SBFL_COVER_DISTANCE_WEIGHT=0.5
 SBFL_RTL_PATH=""
@@ -125,9 +134,13 @@ while (($#)); do
   --selection-diversity-weight) need_value "$@"; SBFL_SELECTION_DIVERSITY_WEIGHT="$2"; shift 2 ;;
   --selection-pool-factor) need_value "$@"; SBFL_SELECTION_POOL_FACTOR="$2"; shift 2 ;;
   --top-sus) need_value "$@"; SBFL_TOP_SUS="$2"; shift 2 ;;
-  --corpus-input) need_value "$@"; SBFL_CORPUS_INPUT="$2"; shift 2 ;;
+  --input) need_value "$@"; SBFL_INPUT="$2"; SBFL_INPUT_EXPLICIT=1; shift 2 ;;
+  --resume-corpus) need_value "$@"; SBFL_RESUME_CORPUS="$2"; shift 2 ;;
+  --save-corpus) SBFL_SAVE_CORPUS=1; shift ;;
+  --checkpoint-interval) need_value "$@"; SBFL_CHECKPOINT_INTERVAL="$2"; shift 2 ;;
+  --gen-only) SBFL_GEN_ONLY=1; shift ;;
   --save-reduce) SBFL_SAVE_REDUCE=1; shift ;;
-  --save-trace) SBFL_SAVE_TRACE=1; shift ;;
+  --save-intermediate) SBFL_SAVE_INTERMEDIATE=1; shift ;;
   --tracker-window-size) need_value "$@"; SBFL_TRACKER_WINDOW_SIZE="$2"; shift 2 ;;
   --cover-distance-weight) need_value "$@"; SBFL_COVER_DISTANCE_WEIGHT="$2"; shift 2 ;;
   --rtl-path) need_value "$@"; SBFL_RTL_PATH="$2"; shift 2 ;;
@@ -143,6 +156,6 @@ while (($#)); do
   esac
 done
 
-# shellcheck source=run_bugset_common.sh
+# shellcheck source=scripts/run_bugset_sbfl.sh
 source "${SCRIPT_DIR}/run_bugset_sbfl.sh"
 bugset_main
