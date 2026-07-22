@@ -1,82 +1,170 @@
-# Ibex Simple System with Co-simulation checking
+# CPU SBFL Integration for the Ibex Simple System
 
-This augments the Ibex Simple System (`examples/simple_system`) to include the
-co-simulation system to check Ibex's execution. This runs Spike in lockstep with
-Ibex and checks each instruction Ibex retires matches what Spike has executed.
-In addition all data memory accesses are checked against memory accesses Spike
-has performed. More details on how the co-simulation works and how to build and
-run simple system with it included can be in found in the Ibex documentation
-under 'Co-simulation System' in the 'Ibex Reference Guide' section.
+[中文](README_CN.md) | English
 
-## Quick Build and Run Instructions
+This directory integrates the standalone [`cpusbfl` Rust project](sbfl/README.md)
+with the Ibex Verilator Simple System and Spike co-simulation. It supplies the
+host simulator, coverage/state C ABI, FuseSoC build description, and Ibex
+experiment workflow that are intentionally outside the generic SBFL project.
 
-```
-# Get the Ibex co-simulation spike branch
-git clone -b ibex_cosim https://github.com/lowRISC/riscv-isa-sim.git riscv-isa-sim-cosim
+## Integration Layout
 
-# Setup build directory
-cd riscv-isa-sim-cosim
-mkdir build
-cd build
-
-# Configure and build spike
-../configure --enable-commitlog --enable-misaligned --prefix=/opt/spike-cosim
-# Installs in /opt/spike-cosim
-sudo make -j8 install
-
-# Setup PKG_CONFIG_PATH so pkg-config can find libs and cflags for the cosim
-export PKG_CONFIG_PATH=/opt/spike-cosim/lib/pkgconfig:$PKG_CONFIG_PATH
-
-# Switch to a checkout of the Ibex repository
-cd <ibex_repo>
-
-# Build simulator
-fusesoc --cores-root=. run --target=sim --setup --build lowrisc:ibex:ibex_simple_system_cosim --RV32E=0 --RV32M=ibex_pkg::RV32MFast
-
-# Build coremark test binary, with performance counter dump disabled. The
-# co-simulator system doesn't produce matching performance counters in spike so
-# any read of those CSRs results in a mismatch and a failure.
-make -C ./examples/sw/benchmarks/coremark SUPPRESS_PCOUNT_DUMP=1
-
-# Run coremark binary with co-simulation checking
-build/lowrisc_ibex_ibex_simple_system_cosim_0/sim-verilator/Vibex_simple_system --meminit=ram,examples/sw/benchmarks/coremark/coremark.elf
+```text
+dv/verilator/simple_system_sbfl/
+├── ibex_simple_system_sbfl.core    # Verilator/FuseSoC simulation target
+├── ibex_sbfl_setup.core            # dependency checks and Rust build hooks
+├── util/                           # setup/build hook scripts
+├── src/csrc/                       # simulator, Spike, coverage, and state bridge
+├── sbfl/                           # standalone CPU SBFL project
+└── docs/                           # Ibex-specific technical documentation
 ```
 
-Sample output:
+The runtime path is:
 
+```text
+RISC-V ELF
+  -> cpusbfl LibAFL executor
+  -> simple_system_sbfl.cc::sim_main()
+  -> Ibex RTL + Spike lockstep comparison
+  -> Verilator coverage + Spike architectural state
+  -> cpusbfl selection and SBFL analysis
+  -> coverage-point / RTL-block ranking
 ```
-Simulation of Ibex
-==================
 
-Tracing can be toggled by sending SIGUSR1 to this process:
-$ kill -USR1 29121
+## Prerequisites
 
-Simulation running, end by pressing CTRL-c.
-TOP.ibex_simple_system.u_top.u_ibex_tracer.unnamedblk1: Writing execution trace to trace_core_00000000.log
-Terminating simulation by software request.
-- ../src/lowrisc_ibex_sim_shared_0/./rtl/sim/simulator_ctrl.sv:93: Verilog $finish
-Received $finish() from Verilog, shutting down simulation.
+The integration requires:
 
-Simulation statistics
-=====================
-Executed cycles:  4116797
-Wallclock time:   17.053 s
-Simulation speed: 241412 cycles/s (241.412 kHz)
-Co-simulation matched 2789425 instructions
+- the Rust toolchain and `cargo-make`;
+- the FuseSoC and Verilator versions required by Ibex;
+- the Ibex co-simulation build of Spike;
+- `pkg-config` entries for `riscv-riscv`, `riscv-disasm`, and `riscv-fdt`.
 
-Performance Counters
-====================
-Cycles:                     4055056
-NONE:                       0
-Instructions Retired:       2750348
-LSU Busy:                   684533
-Fetch Wait:                 187543
-Loads:                      541082
-Stores:                     143451
-Jumps:                      57169
-Conditional Branches:       523452
-Taken Conditional Branches: 187543
-Compressed Instructions:    0
-Multiply Wait:              187920
-Divide Wait:                0
+For a Spike installation under `/opt/spike-cosim`:
+
+```bash
+export PKG_CONFIG_PATH=/opt/spike-cosim/lib/pkgconfig:${PKG_CONFIG_PATH}
+cargo install cargo-make
 ```
+
+Set `IBEX_HOME` to the Ibex repository root. The FuseSoC pre-build hook runs
+`cargo make build-all` there and links `target/release/libcpusbfl.so` into the
+simulator.
+
+## Build
+
+From the Ibex repository root:
+
+```bash
+export IBEX_HOME="$PWD"
+
+fusesoc --cores-root=. run \
+  --target=sim \
+  --setup \
+  --build \
+  lowrisc:ibex:ibex_simple_system_sbfl \
+  --RV32E=0 \
+  --RV32M=ibex_pkg::RV32MFast
+```
+
+The executable is normally generated at:
+
+```text
+build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
+```
+
+```bash
+SBFL_BIN=build/lowrisc_ibex_ibex_simple_system_sbfl_0/sim-verilator/Vibex_simple_system
+"$SBFL_BIN" --help
+```
+
+## Run One Generation
+
+The initial ELF must reproduce an Ibex/Spike mismatch.
+
+```bash
+"$SBFL_BIN" \
+  --coverage verilator.branch,verilator.line \
+  --state PCState,ArchIntRegState,CSRState \
+  generation \
+  --input examples/sw/benchmarks/coremark/coremark.elf \
+  --output logs/manual \
+  --max-iters 100 \
+  --top-pass 10 \
+  --selection diverse \
+  --save-corpus logs/manual/saved_corpus \
+  psbfl \
+  --mutator-window-size 20 \
+  --mutator-weight-strategy uniform \
+  -- -c 5000000
+```
+
+The root `--coverage`/`--state` arguments must precede `generation`.
+Generation-wide arguments precede `psbfl` or `wit-hw`; mode-specific arguments
+follow the mode.
+
+## Bugset Runners
+
+The Ibex repository provides batch wrappers under `scripts/`:
+
+- [`run_bugset_psbfl.py`](../../../scripts/run_bugset_psbfl.py) selects
+  `GenerationMode::PSBFL`;
+- [`run_bugset_withw.py`](../../../scripts/run_bugset_withw.py) selects
+  `GenerationMode::WitHW`;
+- [`run_bugset_sbfl.py`](../../../scripts/run_bugset_sbfl.py) is the generic
+  compatibility entry point;
+- [`rerun_bugset_corpus.py`](../../../scripts/rerun_bugset_corpus.py) resumes
+  generation from each saved corpus in an earlier bugset run;
+- [`analyze_bugset_corpus.py`](../../../scripts/analyze_bugset_corpus.py)
+  rebuilds recorded bug cases and invokes `analysis` for each `saved_corpus`.
+- [`run_args_sweep_sbfl.py`](../../../scripts/run_args_sweep_sbfl.py) runs
+  PSBFL parameter combinations concurrently and combines their summaries.
+
+These entry points run the uv-managed Python implementation in
+[`tools/ibex_sbfl_batch`](../../../tools/ibex_sbfl_batch/README.md).
+
+Example:
+
+```bash
+scripts/run_bugset_psbfl.py \
+  --all verify_dataset \
+  --input examples/sw/benchmarks/coremark/coremark.elf \
+  --max-iters 100 \
+  --jobs 4 \
+  --save-corpus \
+  --logs logs/psbfl
+```
+
+For the wrappers, `--save-corpus` is a boolean flag. Each case writes its
+checkpoint to `<case_logdir>/saved_corpus`. Workdirs contain only `dv/`,
+`vendor/`, `rtl/`, `shared/`, root `.core` files, `Cargo.lock`, and
+`Cargo.toml` before the bug diff is applied.
+
+## Reanalyze Saved Corpora
+
+```bash
+scripts/analyze_bugset_corpus.py \
+  --input-logs logs/psbfl/<run-id> \
+  --top-pass 50 \
+  --selection diverse \
+  --metric ochiai \
+  --jobs 4 \
+  --logs logs/analysis
+```
+
+The analysis runner reads the original `run_status.tsv` and `run.log`, extracts
+coverage/state/tracker settings, rebuilds each patched design, and uses the old
+checkpoint as `analysis --input`. It writes results to a fresh log tree and
+does not overwrite the checkpoint. Use `--dry-run` to inspect the plan.
+
+## Documentation
+
+- [Integration documentation index](docs/README.md)
+- [Build and runtime integration](docs/01-build-and-runtime.md)
+- [Batch generation and analysis runners](docs/02-batch-runners.md)
+- [Simulator, coverage, and state adapter](docs/03-simulator-adapter.md)
+- [Standalone CPU SBFL documentation](sbfl/docs/README.md)
+
+The generic SBFL algorithms, checkpoint format, CLI semantics, and host ABI are
+documented inside `sbfl/`. Ibex/Spike/FuseSoC and bugset-specific instructions
+are documented here.

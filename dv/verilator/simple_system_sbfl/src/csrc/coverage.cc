@@ -15,6 +15,7 @@
 #include "verilated.h"
 #include "verilated_cov.h"
 #include "verilated_cov_key.h"
+#include "verilated_toplevel.h"
 #endif  // VM_COVERAGE
 
 #if VM_COVERAGE == 1
@@ -102,7 +103,10 @@ static std::optional<VerilatorCoverPoint> verilator_coverage_parse_line(
 
 VerilatorCoverage::VerilatorCoverage()
     : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch"),
-            VerilatorCoverGroup("expr"), VerilatorCoverGroup("toggle")} {}
+            VerilatorCoverGroup("expr"), VerilatorCoverGroup("toggle")} {
+  ibex_simple_system tmp;
+  PostExec();
+}
 
 void VerilatorCoverage::reset() {
   for (auto &group : cover) {

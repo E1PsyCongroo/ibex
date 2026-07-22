@@ -1,0 +1,2 @@
+bugset	diff	status	top-k	sus	gen_time	sbfl_time
+0	ibex_decoder.sv.diff	OK	top-3.5	1.000000		4.830380944s

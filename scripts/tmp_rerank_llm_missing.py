@@ -132,7 +132,7 @@ def build_command(
         "uv",
         "run",
         "--project",
-        "tools/sbfl_llm",
+        "tools/ibex_sbfl_llm",
         "--frozen",
         "ibex-sbfl",
         "rerank",

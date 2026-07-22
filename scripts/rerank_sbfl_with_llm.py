@@ -102,7 +102,7 @@ def build_command(rtl_source: str, result: Path, forwarded: Sequence[str]) -> li
         "uv",
         "run",
         "--project",
-        "tools/sbfl_llm",
+        "tools/ibex_sbfl_llm",
         "--frozen",
         "ibex-sbfl",
         "rerank",
@@ -250,7 +250,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     repo_root = Path(__file__).resolve().parents[1]
-    if not (repo_root / "tools" / "sbfl_llm").is_dir():
+    if not (repo_root / "tools" / "ibex_sbfl_llm").is_dir():
         print(f"[ERROR] unified project is missing below {repo_root}", file=sys.stderr)
         return 2
 

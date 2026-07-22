@@ -20,10 +20,18 @@ def translated_args(argv: list[str]) -> list[str]:
 
 
 def main() -> None:
-    project = Path(__file__).resolve().parents[1] / "tools" / "sbfl_llm"
+    project = Path(__file__).resolve().parents[1] / "tools" / "ibex_sbfl_batch"
     os.execvp(
         "uv",
-        ["uv", "run", "--project", str(project), "ibex-sbfl", *translated_args(sys.argv[1:])],
+        [
+            "uv",
+            "run",
+            "--project",
+            str(project),
+            "--frozen",
+            "ibex-sbfl-batch",
+            *translated_args(sys.argv[1:]),
+        ],
     )
 
 
