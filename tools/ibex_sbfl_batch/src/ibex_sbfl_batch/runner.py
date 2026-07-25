@@ -129,10 +129,10 @@ class GenerationRunner:
                 raise SbflBatchError(f"{name} must be in range [0, 1]")
         if cfg.selection_pool_factor <= 0:
             raise SbflBatchError("selection pool factor must be positive")
-        if cfg.max_run_timeout <= 0 or cfg.max_iters <= 0 or cfg.tracker_window_size <= 0:
-            raise SbflBatchError("timeout, max-iters, and tracker window must be positive")
-        if cfg.top_pass < 0 or cfg.top_sus < 0:
-            raise SbflBatchError("top-pass and top-sus must be non-negative")
+        if cfg.max_run_timeout <= 0 or cfg.tracker_window_size <= 0:
+            raise SbflBatchError("timeout and tracker window must be positive")
+        if cfg.top_sus < 0:
+            raise SbflBatchError("top-sus must be non-negative")
         if cfg.checkpoint_interval is not None:
             if cfg.checkpoint_interval <= 0:
                 raise SbflBatchError("checkpoint interval must be positive")
