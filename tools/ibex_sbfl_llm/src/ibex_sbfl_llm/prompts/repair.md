@@ -6,4 +6,6 @@ Return a corrected structured response. It must contain exactly one assessment f
 
 {candidate_ids}
 
+Each assessment must contain exactly these fields: {response_fields}.
+
 Do not change the requested schema and do not add prose outside the structured response.

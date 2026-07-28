@@ -3,17 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
-CausalRole = Literal[
-    "probable_root_cause",
-    "causal_upstream",
-    "propagated_symptom",
-    "weakly_related",
-    "insufficient_evidence",
-]
 
 
 @dataclass(frozen=True)
@@ -38,8 +29,9 @@ class CandidateAssessment(BaseModel):
 
     candidate_id: str = Field(description="An ID from the supplied candidate list")
     score: float = Field(ge=0.0, le=1.0)
-    causal_role: CausalRole
-    key_lines: list[int]
+
+
+class ReasonedCandidateAssessment(CandidateAssessment):
     reason: str = Field(min_length=1, max_length=1000)
 
 
@@ -49,9 +41,18 @@ class AssessmentResponse(BaseModel):
     assessments: list[CandidateAssessment]
 
 
+class ReasonedAssessmentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    assessments: list[ReasonedCandidateAssessment]
+
+
+AssessmentResponseType = AssessmentResponse | ReasonedAssessmentResponse
+
+
 @dataclass(frozen=True)
 class ApiResult:
-    response: AssessmentResponse
+    response: AssessmentResponseType
     raw_text: str
     response_id: str | None
     usage: dict[str, int]

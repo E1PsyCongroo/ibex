@@ -50,7 +50,13 @@ def run_rerank(args: Any) -> int:
             args.snippet_radius,
         )
         system_prompt = load_prompt("system.md")
-        user_prompt = build_user_prompt(candidates, sources, test_info)
+        include_reason = bool(getattr(args, "include_reason", False))
+        user_prompt = build_user_prompt(
+            candidates,
+            sources,
+            test_info,
+            include_reason=include_reason,
+        )
         hashes = prompt_metadata(system_prompt, user_prompt)
 
         if args.save_prompt:
@@ -91,6 +97,7 @@ def run_rerank(args: Any) -> int:
             retries=args.retries,
             retry_delay=args.retry_delay,
             structured_output=args.structured_output,
+            include_reason=include_reason,
         )
         assessments = rank_candidates(
             candidates,
@@ -125,6 +132,7 @@ def run_rerank(args: Any) -> int:
             "ranking_strategy": args.ranking_strategy,
             "llm_weight": args.llm_weight,
             "structured_output": args.structured_output,
+            "include_reason": include_reason,
             "temperature": args.temperature,
             "timeout": args.timeout,
             "retries": args.retries,
@@ -140,7 +148,7 @@ def run_rerank(args: Any) -> int:
             "elapsed_seconds": round(api_result.elapsed_seconds, 6),
         }
         output = {
-            "schema_version": 2,
+            "schema_version": 3,
             "tool_version": __version__,
             "model": args.model,
             "inputs": inputs,

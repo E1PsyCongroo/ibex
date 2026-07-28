@@ -23,7 +23,8 @@ For each candidate:
 1. Determine whether its code creates a wrong value or only propagates one.
 2. Relate the code to the failure information when concrete failure details are available.
 3. Assign a calibrated root-cause likelihood score from 0.0 to 1.0.
+4. Give a concise technical reason for the score, grounded only in the supplied failure information and RTL.
 
-Return only the candidate ID and score fields required by the supplied JSON schema. Do not include reasons, causal roles, source-line lists, or other explanatory fields.
+Return only the candidate ID, score, and reason fields required by the supplied JSON schema. Do not include causal roles, source-line lists, or other fields.
 
 The response must satisfy the supplied JSON schema. Do not return prose outside the structured response.

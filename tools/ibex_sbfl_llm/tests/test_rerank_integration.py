@@ -10,7 +10,7 @@ from ibex_sbfl_llm.models import (
 from ibex_sbfl_llm.rerank import run_rerank
 
 
-def test_end_to_end_rerank_writes_schema_v2_with_patched_source(tmp_path: Path, monkeypatch):
+def test_end_to_end_rerank_writes_schema_v3_with_patched_source(tmp_path: Path, monkeypatch):
     rtl = tmp_path / "rtl"
     rtl.mkdir()
     (rtl / "demo.sv").write_text("module demo;\n  assign value = good;\nendmodule\n")
@@ -51,9 +51,6 @@ def test_end_to_end_rerank_writes_schema_v2_with_patched_source(tmp_path: Path, 
             CandidateAssessment(
                 candidate_id="B001",
                 score=0.9,
-                causal_role="probable_root_cause",
-                key_lines=[2],
-                reason="uses the wrong source",
             )
         ]
     )
@@ -61,6 +58,7 @@ def test_end_to_end_rerank_writes_schema_v2_with_patched_source(tmp_path: Path, 
     def fake_call_model(**kwargs):
         assert "assign value = bad" in kwargs["user_prompt"]
         assert "assign value = good" not in kwargs["user_prompt"]
+        assert kwargs["include_reason"] is False
         return ApiResult(model_response, "{}", "r1", {"total_tokens": 10}, "json_schema", 1, 0.1)
 
     monkeypatch.setattr("ibex_sbfl_llm.rerank.call_model", fake_call_model)
@@ -83,6 +81,7 @@ def test_end_to_end_rerank_writes_schema_v2_with_patched_source(tmp_path: Path, 
         ranking_strategy="weighted",
         llm_weight=0.75,
         structured_output="auto",
+        include_reason=False,
         timeout=1.0,
         temperature=None,
         retries=0,
@@ -93,9 +92,13 @@ def test_end_to_end_rerank_writes_schema_v2_with_patched_source(tmp_path: Path, 
     )
     assert run_rerank(args) == 0
     value = json.loads(output.read_text())
-    assert value["schema_version"] == 2
+    assert value["schema_version"] == 3
     assert value["inputs"]["patch_state"] == "applied"
     assert value["request"]["api"] == "responses"
+    assert value["config"]["include_reason"] is False
     assert value["assessments"][0]["llm_score"] == 0.9
     assert value["rankings"][0]["reranked_rank"] == 1
+    assert "reason" not in value["assessments"][0]
+    assert "key_lines" not in value["assessments"][0]
+    assert "causal_role" not in value["assessments"][0]
     assert "assign value = good" in (rtl / "demo.sv").read_text()

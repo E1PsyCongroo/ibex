@@ -44,6 +44,8 @@ Important controls:
 - `--top-k` controls the validated rerank result size;
 - `--ranking-strategy weighted|llm-only|rrf` combines SBFL and model scores;
 - `--structured-output auto|strict|off` controls response-schema enforcement;
+- `--include-reason` requests a concise reason for every score; by default the
+  model returns only candidate IDs and scores;
 - `--dry-run --save-prompt` prepares inputs without calling the model.
 
 By default the RTL source must match the supplied patch. Use
@@ -53,8 +55,10 @@ state has been independently verified.
 ## Output
 
 The output JSON records resolved inputs, configuration, prompt hash, model
-metadata, token usage, latency, candidate assessments, and final rankings. The
-batch project consumes this schema for LLM summary/statistics commands:
+metadata, token usage, latency, candidate assessments, and final rankings.
+Assessments contain only ranking scores by default and additionally include
+`reason` when `--include-reason` is enabled. The batch project consumes this
+schema for LLM summary/statistics commands:
 
 ```bash
 uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch summarize llm \

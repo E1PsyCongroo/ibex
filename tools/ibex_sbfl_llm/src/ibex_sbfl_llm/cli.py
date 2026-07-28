@@ -14,44 +14,198 @@ from .errors import SbflLlmError
 from .rerank import run_rerank
 
 
+class HelpFormatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
+):
+    """Preserve examples while showing defaults in option help."""
+
+    def _get_help_string(self, action: argparse.Action) -> str:
+        if action.default is None or action.default is False:
+            return action.help or ""
+        return super()._get_help_string(action)
+
+
 def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
-    parser = subparsers.add_parser("rerank", help="score and rerank SBFL block candidates")
-    parser.add_argument("rtl_source", type=Path)
-    parser.add_argument("sbfl_result", type=Path)
-    parser.add_argument("--model", help="model name (required unless --dry-run)")
-    parser.add_argument(
+    parser = subparsers.add_parser(
+        "rerank",
+        help="score and rerank SBFL block candidates with an LLM",
+        description=(
+            "Apply a bug patch to a temporary copy of the RTL source, collect source "
+            "context for suspicious SBFL blocks, and ask an LLM to rerank them."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  ibex-sbfl rerank rtl logs/sbfl/case \\\n"
+            "    --patch verify_dataset/7/ibex_multdiv_fast.sv.diff \\\n"
+            "    --model gpt-5.5\n"
+            "  ibex-sbfl rerank rtl logs/sbfl/case --patch bug.diff --dry-run\n"
+            "  ibex-sbfl rerank rtl logs/sbfl/case --patch bug.diff \\\n"
+            "    --model gpt-5.5 --candidate-count 80 --top-k 30 --include-reason"
+        ),
+        formatter_class=HelpFormatter,
+    )
+
+    inputs = parser.add_argument_group("inputs and patching")
+    inputs.add_argument(
+        "rtl_source",
+        type=Path,
+        help="path to the original, unpatched RTL source directory",
+    )
+    inputs.add_argument(
+        "sbfl_result",
+        type=Path,
+        help="SBFL result directory or its result.log file",
+    )
+    inputs.add_argument(
+        "--patch",
+        type=Path,
+        help="diff to apply to a temporary RTL copy (default: discover [DIFF] in run.log)",
+    )
+    inputs.add_argument(
+        "--allow-unpatched-source",
+        action="store_true",
+        help="allow execution when no patch is found; use only for intentional unpatched runs",
+    )
+    test_info = inputs.add_mutually_exclusive_group()
+    test_info.add_argument(
+        "--test-info",
+        help="inline failure or test context to include in the prompt",
+    )
+    test_info.add_argument(
+        "--test-info-file",
+        type=Path,
+        help="UTF-8 file containing failure or test context",
+    )
+
+    model = parser.add_argument_group("model and API")
+    model.add_argument(
+        "--model",
+        help="model name; required unless --dry-run is used",
+    )
+    model.add_argument(
         "--api-base",
         default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        help="OpenAI-compatible API URL; OPENAI_BASE_URL overrides the built-in default",
     )
-    parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
-    parser.add_argument("--candidate-count", type=int, default=50)
-    parser.add_argument("--top-k", type=int, default=20)
-    parser.add_argument("--source-mode", choices=["snippets", "full", "auto"], default="auto")
-    parser.add_argument("--max-source-chars", type=int, default=240_000)
-    parser.add_argument("--snippet-radius", type=int, default=30)
-    parser.add_argument("--patch", type=Path)
-    parser.add_argument("--allow-unpatched-source", action="store_true")
-    test_info = parser.add_mutually_exclusive_group()
-    test_info.add_argument("--test-info")
-    test_info.add_argument("--test-info-file", type=Path)
-    parser.add_argument(
+    model.add_argument(
+        "--api-key-env",
+        default="OPENAI_API_KEY",
+        help="environment variable containing the API key; pass an empty value for no auth",
+    )
+    model.add_argument(
+        "--timeout",
+        type=float,
+        default=180.0,
+        metavar="SECONDS",
+        help="timeout for each model request",
+    )
+    model.add_argument(
+        "--temperature",
+        type=float,
+        help="sampling temperature (default: provider/model default)",
+    )
+    model.add_argument(
+        "--retries",
+        type=int,
+        default=2,
+        help="number of retries after the initial model request",
+    )
+    model.add_argument(
+        "--retry-delay",
+        type=float,
+        default=2.0,
+        metavar="SECONDS",
+        help="base delay between model request retries",
+    )
+    model.add_argument(
+        "--structured-output",
+        choices=["auto", "strict", "off"],
+        default="auto",
+        help="structured response mode: auto fallback, strict requirement, or disabled",
+    )
+
+    candidates = parser.add_argument_group("candidates and source context")
+    candidates.add_argument(
+        "--candidate-count",
+        type=int,
+        default=50,
+        metavar="N",
+        help="number of highest-ranked SBFL candidates sent to the model",
+    )
+    candidates.add_argument(
+        "--top-k",
+        type=int,
+        default=20,
+        metavar="N",
+        help="number of final ranked candidates written to the output",
+    )
+    candidates.add_argument(
+        "--source-mode",
+        choices=["snippets", "full", "auto"],
+        default="auto",
+        help="RTL context mode; auto uses full source when it fits, otherwise snippets",
+    )
+    candidates.add_argument(
+        "--max-source-chars",
+        type=int,
+        default=240_000,
+        metavar="N",
+        help="maximum RTL source characters included in the prompt",
+    )
+    candidates.add_argument(
+        "--snippet-radius",
+        type=int,
+        default=30,
+        metavar="LINES",
+        help="source lines before and after each candidate in snippet mode",
+    )
+
+    ranking = parser.add_argument_group("ranking")
+    ranking.add_argument(
         "--ranking-strategy",
         choices=["weighted", "llm-only", "rrf"],
         default="weighted",
+        help="method used to combine SBFL order and model scores",
     )
-    parser.add_argument("--llm-weight", type=float, default=0.75)
-    parser.add_argument("--structured-output", choices=["auto", "strict", "off"], default="auto")
-    parser.add_argument("--timeout", type=float, default=180.0)
-    parser.add_argument("--temperature", type=float)
-    parser.add_argument("--retries", type=int, default=2)
-    parser.add_argument("--retry-delay", type=float, default=2.0)
-    parser.add_argument("--output", type=Path)
-    parser.add_argument("--save-prompt", action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
+    ranking.add_argument(
+        "--llm-weight",
+        type=float,
+        default=0.75,
+        metavar="FLOAT",
+        help="LLM contribution for the weighted strategy, from 0 to 1",
+    )
+    ranking.add_argument(
+        "--include-reason",
+        action="store_true",
+        help="request and output one concise reason for each model score",
+    )
+
+    output = parser.add_argument_group("output and diagnostics")
+    output.add_argument(
+        "--output",
+        type=Path,
+        help="output JSON path (default: <SBFL result directory>/llm_rerank.json)",
+    )
+    output.add_argument(
+        "--save-prompt",
+        action="store_true",
+        help="save the rendered prompt beside the output JSON",
+    )
+    output.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the prompt without calling the model or writing rerank JSON",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ibex-sbfl")
+    parser = argparse.ArgumentParser(
+        prog="ibex-sbfl",
+        description="LLM-assisted reranking for Ibex SBFL localization results.",
+        epilog="Run `ibex-sbfl rerank --help` for rerank options and examples.",
+        formatter_class=HelpFormatter,
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_rerank_parser(subparsers)
     return parser

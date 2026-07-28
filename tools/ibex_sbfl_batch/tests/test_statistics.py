@@ -1,4 +1,4 @@
-from ibex_sbfl_batch.statistics import compute_llm_stats, compute_sbfl_stats
+from ibex_sbfl_batch.statistics import LLM_FIELDS, compute_llm_stats, compute_sbfl_stats
 
 
 def test_sbfl_timing_counts_only_present_values() -> None:
@@ -42,3 +42,9 @@ def test_llm_stats_compare_rerank_with_sbfl() -> None:
     assert stats["top5"] == 1
     assert stats["improved"] == 1
     assert stats["mrr"] == 0.5
+
+
+def test_llm_summary_keeps_optional_reason_but_not_removed_fields() -> None:
+    assert "reason" in LLM_FIELDS
+    assert "causal_role" not in LLM_FIELDS
+    assert "key_lines" not in LLM_FIELDS

@@ -40,6 +40,7 @@ uv run --project tools/ibex_sbfl_llm --frozen ibex-sbfl rerank \
 - `--top-k`：设置通过校验的 rerank 结果数量；
 - `--ranking-strategy weighted|llm-only|rrf`：组合 SBFL 与模型分数；
 - `--structured-output auto|strict|off`：控制响应 schema；
+- `--include-reason`：要求模型为每个分数输出简短原因；默认只输出候选 ID 和分数；
 - `--dry-run --save-prompt`：只准备输入，不调用模型。
 
 默认要求 RTL 源码与传入 patch 匹配。只有在源码已经应用 patch 且已独立确认时，才应
@@ -48,7 +49,8 @@ uv run --project tools/ibex_sbfl_llm --frozen ibex-sbfl rerank \
 ## 输出
 
 输出 JSON 记录解析后的输入、配置、prompt hash、模型信息、token 使用量、延迟、候选
-评估和最终排名。批处理项目使用该 schema 生成 LLM 汇总与统计：
+评估和最终排名。默认 assessment 只包含排序所需的分数；使用 `--include-reason` 时
+额外包含 `reason`。批处理项目使用该 schema 生成 LLM 汇总与统计：
 
 ```bash
 uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch summarize llm \

@@ -59,7 +59,6 @@ LLM_FIELDS = [
     "llm_score",
     "normalized_sbfl_score",
     "final_score",
-    "causal_role",
     "ranking_strategy",
     "patch_state",
     "prompt_sha256",
@@ -338,7 +337,6 @@ def process_llm_logdir(
                 "llm_score": str(matched.get("llm_score", "")),
                 "normalized_sbfl_score": str(matched.get("normalized_sbfl_score", "")),
                 "final_score": str(matched.get("final_score", "")),
-                "causal_role": str(matched.get("causal_role", "")),
             }
         )
     return row

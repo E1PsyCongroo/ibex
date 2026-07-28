@@ -13,7 +13,13 @@ from openai import OpenAI
 from pydantic import ValidationError
 
 from .errors import ModelResponseError, SbflLlmError
-from .models import ApiResult, AssessmentResponse, Candidate
+from .models import (
+    ApiResult,
+    AssessmentResponse,
+    AssessmentResponseType,
+    Candidate,
+    ReasonedAssessmentResponse,
+)
 from .prompting import build_repair_prompt
 
 
@@ -48,9 +54,21 @@ def extract_json_object(text: str) -> dict[str, Any]:
 def validate_assessments(
     text: str,
     candidates: Sequence[Candidate],
-) -> AssessmentResponse:
+    *,
+    include_reason: bool = False,
+) -> AssessmentResponseType:
+    return _parse_assessments(text, candidates, include_reason=include_reason)
+
+
+def _parse_assessments(
+    text: str,
+    candidates: Sequence[Candidate],
+    *,
+    include_reason: bool,
+) -> AssessmentResponseType:
+    response_type = ReasonedAssessmentResponse if include_reason else AssessmentResponse
     try:
-        response = AssessmentResponse.model_validate(extract_json_object(text))
+        response = response_type.model_validate(extract_json_object(text))
     except ValidationError as exc:
         raise ModelResponseError(f"response schema validation failed: {exc}") from exc
 
@@ -64,24 +82,20 @@ def validate_assessments(
     if unknown or missing:
         raise ModelResponseError(f"candidate set mismatch; unknown={unknown}, missing={missing}")
 
-    for assessment in response.assessments:
-        assessment.reason = assessment.reason.strip()
-        allowed_lines = set(candidate_map[assessment.candidate_id].lines)
-        invalid_lines = sorted(set(assessment.key_lines) - allowed_lines)
-        if invalid_lines:
-            raise ModelResponseError(
-                f"{assessment.candidate_id} key_lines are outside its block: {invalid_lines}"
-            )
+    if include_reason:
+        for assessment in response.assessments:
+            assessment.reason = assessment.reason.strip()
     return response
 
 
-def _text_format(mode: str) -> dict[str, Any] | None:
+def _text_format(mode: str, *, include_reason: bool) -> dict[str, Any] | None:
     if mode == "json_schema":
+        response_type = ReasonedAssessmentResponse if include_reason else AssessmentResponse
         return {
             "type": "json_schema",
             "name": "candidate_assessments",
             "strict": True,
-            "schema": AssessmentResponse.model_json_schema(),
+            "schema": response_type.model_json_schema(),
         }
     if mode == "json_object":
         return {"type": "json_object"}
@@ -141,6 +155,7 @@ def call_model(
     retries: int,
     retry_delay: float,
     structured_output: str,
+    include_reason: bool = False,
 ) -> ApiResult:
     # The SDK requires credential configuration at construction time. A callable
     # returning an empty string satisfies that configuration without emitting an
@@ -172,7 +187,7 @@ def call_model(
             "input": input_items,
             "store": False,
         }
-        text_format = _text_format(mode)
+        text_format = _text_format(mode, include_reason=include_reason)
         if text_format is not None:
             payload["text"] = {"format": text_format}
         if temperature is not None:
@@ -201,7 +216,11 @@ def call_model(
             )
 
         try:
-            validated = validate_assessments(raw_text, candidates)
+            validated = _parse_assessments(
+                raw_text,
+                candidates,
+                include_reason=include_reason,
+            )
         except ModelResponseError as exc:
             if validation_failures >= retries:
                 raise
@@ -209,7 +228,14 @@ def call_model(
             input_items.extend(
                 [
                     {"role": "assistant", "content": raw_text},
-                    {"role": "user", "content": build_repair_prompt(str(exc), candidates)},
+                    {
+                        "role": "user",
+                        "content": build_repair_prompt(
+                            str(exc),
+                            candidates,
+                            include_reason=include_reason,
+                        ),
+                    },
                 ]
             )
             time.sleep(retry_delay * validation_failures)

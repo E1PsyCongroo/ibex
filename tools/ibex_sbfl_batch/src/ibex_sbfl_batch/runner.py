@@ -229,9 +229,9 @@ class GenerationRunner:
         argv.extend(
             [
                 "--rtl-path",
-                cfg.rtl_path,
+                str(resolve_workdir_path(workdir, cfg.rtl_path)),
                 "--include-paths",
-                cfg.include_paths,
+                ",".join(str(resolve_workdir_path(workdir, p)) for p in cfg.include_paths.split(",")),
                 "--top-module",
                 cfg.top_module,
                 "--top-scope",

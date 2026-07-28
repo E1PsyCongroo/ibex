@@ -6,7 +6,7 @@ import math
 from collections.abc import Sequence
 
 from .errors import SbflLlmError
-from .models import AssessmentResponse, Candidate
+from .models import AssessmentResponseType, Candidate
 
 
 def _parse_suspiciousness(candidate: Candidate) -> float:
@@ -24,7 +24,7 @@ def _parse_suspiciousness(candidate: Candidate) -> float:
 
 def rank_candidates(
     candidates: Sequence[Candidate],
-    response: AssessmentResponse,
+    response: AssessmentResponseType,
     strategy: str,
     llm_weight: float,
 ) -> list[dict[str, object]]:
@@ -71,11 +71,11 @@ def rank_candidates(
                 "llm_score": round(assessment.score, 12),
                 "normalized_sbfl_score": round(normalized_sbfl[candidate.candidate_id], 12),
                 "final_score": round(final_score, 12),
-                "causal_role": assessment.causal_role,
-                "key_lines": assessment.key_lines,
-                "reason": assessment.reason,
             }
         )
+        reason = getattr(assessment, "reason", None)
+        if reason is not None:
+            value["reason"] = reason
         scored.append(value)
 
     scored.sort(

@@ -270,11 +270,36 @@ def find_reranked_bug_rank(
     line_window: int = 0,
 ) -> tuple[str, Mapping[str, Any] | None]:
     target_lines = line_set_with_window(bug_info["modify_line"], line_window)
-    for item in sorted(rankings, key=lambda value: int(value["reranked_rank"])):
+    ordered = sorted(rankings, key=lambda value: int(value["reranked_rank"]))
+    tie_groups: dict[tuple[str, Decimal | str | int], list[Mapping[str, Any]]] = {}
+    for item in ordered:
+        rank = int(item["reranked_rank"])
+        raw_score = item.get("final_score")
+        score_text = str(raw_score).strip() if raw_score is not None else ""
+        if not score_text:
+            # Legacy results without final_score retain their original integer rank.
+            score_key: tuple[str, Decimal | str | int] = ("rank", rank)
+        else:
+            try:
+                score_key = ("num", Decimal(score_text))
+            except InvalidOperation:
+                score_key = ("str", score_text)
+        tie_groups.setdefault(score_key, []).append(item)
+
+    average_ranks = {
+        int(item["reranked_rank"]): Fraction(
+            sum(int(member["reranked_rank"]) for member in group),
+            len(group),
+        )
+        for group in tie_groups.values()
+        for item in group
+    }
+    for item in ordered:
         if str(item.get("module", "")) != str(bug_info["module_name"]):
             continue
         if str(item.get("scope", "")) != str(bug_info["scope_name"]):
             continue
         if {int(line) for line in item.get("lines", [])} & target_lines:
-            return f"top-{int(item['reranked_rank'])}", item
+            rank = int(item["reranked_rank"])
+            return f"top-{format_average_rank(average_ranks[rank])}", item
     return f"over top-{len(rankings)}", None

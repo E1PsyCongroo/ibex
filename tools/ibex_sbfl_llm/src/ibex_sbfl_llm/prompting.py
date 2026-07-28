@@ -56,6 +56,8 @@ def build_user_prompt(
     candidates: Sequence[Candidate],
     sources: SourceBundle,
     test_info: str,
+    *,
+    include_reason: bool = False,
 ) -> str:
     sections: list[str] = []
     for region in sources.regions:
@@ -74,16 +76,28 @@ def build_user_prompt(
         ),
         "source_sections": "\n\n".join(sections),
     }
-    prompt = load_prompt("rerank.md")
+    prompt = load_prompt("rerank_with_reason.md" if include_reason else "rerank.md")
     for key, value in replacements.items():
         prompt = prompt.replace(f"{{{key}}}", value)
     return prompt
 
 
-def build_repair_prompt(validation_error: str, candidates: Sequence[Candidate]) -> str:
+def build_repair_prompt(
+    validation_error: str,
+    candidates: Sequence[Candidate],
+    *,
+    include_reason: bool = False,
+) -> str:
+    response_fields = (
+        "`candidate_id`, `score`, and `reason`"
+        if include_reason
+        else "`candidate_id` and `score`"
+    )
     prompt = load_prompt("repair.md")
-    return prompt.replace("{validation_error}", validation_error).replace(
-        "{candidate_ids}", ", ".join(candidate.candidate_id for candidate in candidates)
+    return (
+        prompt.replace("{validation_error}", validation_error)
+        .replace("{candidate_ids}", ", ".join(candidate.candidate_id for candidate in candidates))
+        .replace("{response_fields}", response_fields)
     )
 
 
