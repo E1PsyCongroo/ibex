@@ -2,7 +2,7 @@
 
 `ibex_sbfl_batch` 负责所有不调用 LLM 的 Ibex SBFL 非交互工作流：
 
-- PSBFL 与 WitHW bugset generation；
+- PSBFL、Random 与 WitHW bugset generation；
 - 并行执行 PSBFL 参数扫描；
 - 从 `saved_corpus` 继续 generation；
 - 重建 patched simulator 后执行 checkpoint analysis；
@@ -27,6 +27,10 @@ FuseSoC 与 Edalize 固定为 Ibex Python 工具环境使用的版本，确保 F
 ```bash
 # Generation
 uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch generation psbfl \
+  --all verify_dataset --max-iters 100 --save-corpus
+
+# Random generation
+uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch generation random \
   --all verify_dataset --max-iters 100 --save-corpus
 
 # 从 checkpoint 继续 generation

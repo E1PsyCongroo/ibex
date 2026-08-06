@@ -14,9 +14,9 @@ from ibex_sbfl_common.errors import SbflCommonError
 
 from .analysis import AnalysisRunner, prepare_analysis
 from .config import (
-    DEFAULT_SIMULATOR_ARGS,
-    DEFAULT_RTL,
     DEFAULT_INCLUDES,
+    DEFAULT_RTL,
+    DEFAULT_SIMULATOR_ARGS,
     DEFAULT_TOP_MODULE,
     DEFAULT_TOP_SCOPE,
     ExecutionConfig,
@@ -87,7 +87,7 @@ def _add_mode_options(parser: argparse.ArgumentParser, *, inherited: bool = Fals
 
 def _add_generation_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("generation", help="run generation on patched bug cases")
-    parser.add_argument("mode", choices=["psbfl", "withw"])
+    parser.add_argument("mode", choices=["psbfl", "random", "withw"])
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--all", dest="all_cases", type=Path)
     target.add_argument("--case", type=Path)
@@ -232,28 +232,30 @@ def _run_generation(args: argparse.Namespace) -> int:
         input_path = input_path.resolve()
         if not input_path.is_file():
             raise SbflBatchError(f"input path not found: {input_path}")
+    psbfl_options = ("mutator_window_size", "mutator_weight_strategy")
+    withw_options = (
+        "max_corpus_size",
+        "init_seed_rate",
+        "mutate_rate",
+        "priority_alpha",
+        "failed_reward",
+    )
     if args.mode == "psbfl":
-        wrong = [
-            name
-            for name in (
-                "max_corpus_size",
-                "init_seed_rate",
-                "mutate_rate",
-                "priority_alpha",
-                "failed_reward",
-            )
-            if getattr(args, name) is not None
-        ]
+        wrong = [name for name in withw_options if getattr(args, name) is not None]
         if wrong:
             raise SbflBatchError(f"WitHW options are not valid for PSBFL: {', '.join(wrong)}")
-    else:
-        wrong = [
-            name
-            for name in ("mutator_window_size", "mutator_weight_strategy")
-            if getattr(args, name) is not None
-        ]
+    elif args.mode == "withw":
+        wrong = [name for name in psbfl_options if getattr(args, name) is not None]
         if wrong:
             raise SbflBatchError(f"PSBFL options are not valid for WitHW: {', '.join(wrong)}")
+    else:
+        wrong = [
+            name for name in (*psbfl_options, *withw_options) if getattr(args, name) is not None
+        ]
+        if wrong:
+            raise SbflBatchError(
+                f"mode-specific options are not valid for Random: {', '.join(wrong)}"
+            )
     config = GenerationConfig(
         mode=args.mode,
         coverage=args.coverage,
@@ -291,7 +293,7 @@ def _run_generation(args: argparse.Namespace) -> int:
             DEFAULT_SIMULATOR_ARGS if args.simulator_args is None else args.simulator_args
         ),
     )
-    tmp_name = "run_bugset_psbfl" if args.mode == "psbfl" else "run_bugset_withw"
+    tmp_name = f"run_bugset_{args.mode}"
     return GenerationRunner(_execution(args, tmp_name), config, cases).run()
 
 

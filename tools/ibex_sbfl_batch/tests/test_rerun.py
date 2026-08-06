@@ -4,7 +4,7 @@ from ibex_sbfl_batch.cli import build_parser
 from ibex_sbfl_batch.rerun import prepare_rerun
 
 
-def _old_run(tmp_path: Path) -> Path:
+def _old_run(tmp_path: Path, generation_args: str | None = None) -> Path:
     run_dir = tmp_path / "old"
     case_log = run_dir / "case_log"
     case_dir = tmp_path / "bugset" / "case"
@@ -14,14 +14,16 @@ def _old_run(tmp_path: Path) -> Path:
     corpus.write_text("checkpoint", encoding="utf-8")
     diff = case_dir / "bug.sv.diff"
     diff.write_text("patch", encoding="utf-8")
+    generation_args = generation_args or (
+        "psbfl --mutator-window-size 12 --mutator-weight-strategy tail_quad"
+    )
     (case_log / "run.log").write_text(
         "[RUN] /tmp/sbfl -c branch -s PCState generation "
         "--max-run-timeout 9 --max-iters 20 --top-pass 7 --selection sort "
         "--selection-diversity-weight 0.25 --selection-pool-factor 4 "
         "--top-sus 6 --tracker-window-size 33 --cover-distance-weight 0.45 "
         "--output /tmp/out --resume-corpus /tmp/old --save-corpus /tmp/saved "
-        "--checkpoint-interval 8 --save-intermediate psbfl "
-        "--mutator-window-size 12 --mutator-weight-strategy tail_quad -- -c 111\n",
+        f"--checkpoint-interval 8 --save-intermediate {generation_args} -- -c 111\n",
         encoding="utf-8",
     )
     (run_dir / "run_status.tsv").write_text(
@@ -60,3 +62,25 @@ def test_rerun_no_save_corpus_drops_inherited_checkpoint(tmp_path: Path) -> None
     assert config.mutator_window_size == 12
     assert config.mutator_weight_strategy == "tail_quad"
     assert config.simulator_args == ["-c", "999"]
+
+
+def test_rerun_inherits_random_generation_mode(tmp_path: Path) -> None:
+    run_dir = _old_run(tmp_path, "random")
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "rerun",
+            "--input-logs",
+            str(run_dir),
+            "--max-iters",
+            "11",
+            "--no-save-corpus",
+        ]
+    )
+    args.simulator_args = []
+
+    config, cases = prepare_rerun(args)
+
+    assert len(cases) == 1
+    assert config.mode == "random"
+    assert config.max_iters == 11

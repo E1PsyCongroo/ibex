@@ -140,6 +140,8 @@ class GenerationRunner:
                 raise SbflBatchError("--checkpoint-interval requires --save-corpus")
         if cfg.save_reduce and not cfg.reduce_insts:
             raise SbflBatchError("--save-reduce requires --reduce-insts")
+        if cfg.mode not in {"psbfl", "random", "withw"}:
+            raise SbflBatchError(f"unsupported generation mode: {cfg.mode}")
         if cfg.mode == "psbfl":
             if cfg.mutator_window_size <= 0:
                 raise SbflBatchError("mutator window size must be positive")
@@ -160,8 +162,6 @@ class GenerationRunner:
                     raise SbflBatchError(f"{name} must be in range [0, 1]")
             if cfg.failed_reward < 0:
                 raise SbflBatchError("failed reward must be non-negative")
-        else:
-            raise SbflBatchError(f"unsupported generation mode: {cfg.mode}")
         if not self.cases:
             raise SbflBatchError("no bug cases selected")
 
@@ -231,7 +231,9 @@ class GenerationRunner:
                 "--rtl-path",
                 str(resolve_workdir_path(workdir, cfg.rtl_path)),
                 "--include-paths",
-                ",".join(str(resolve_workdir_path(workdir, p)) for p in cfg.include_paths.split(",")),
+                ",".join(
+                    str(resolve_workdir_path(workdir, p)) for p in cfg.include_paths.split(",")
+                ),
                 "--top-module",
                 cfg.top_module,
                 "--top-scope",
@@ -250,7 +252,9 @@ class GenerationRunner:
                     cfg.mutator_weight_strategy,
                 ]
             )
-        else:
+        elif cfg.mode == "random":
+            argv.append("random")
+        elif cfg.mode == "withw":
             argv.extend(
                 [
                     "wit-hw",
@@ -266,6 +270,8 @@ class GenerationRunner:
                     str(cfg.failed_reward),
                 ]
             )
+        else:
+            raise SbflBatchError(f"unsupported generation mode: {cfg.mode}")
         if cfg.simulator_args:
             argv.extend(["--", *cfg.simulator_args])
         return argv

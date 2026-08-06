@@ -2,7 +2,7 @@
 
 `ibex_sbfl_batch` owns non-interactive Ibex SBFL workflows that do not call an LLM:
 
-- PSBFL and WitHW bugset generation;
+- PSBFL, Random, and WitHW bugset generation;
 - parallel PSBFL parameter sweeps;
 - generation resume from `saved_corpus`;
 - checkpoint analysis after rebuilding patched simulators;
@@ -29,6 +29,10 @@ versions as the Ibex Python tool environment so FuseSoC pre-build scripts use a
 ```bash
 # Generation
 uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch generation psbfl \
+  --all verify_dataset --max-iters 100 --save-corpus
+
+# Random generation
+uv run --project tools/ibex_sbfl_batch --frozen ibex-sbfl-batch generation random \
   --all verify_dataset --max-iters 100 --save-corpus
 
 # Resume generation

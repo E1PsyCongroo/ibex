@@ -41,10 +41,18 @@ def has_flag(argv: list[str], flag: str) -> bool:
 
 
 def generation_mode(argv: list[str]) -> str:
-    if "psbfl" in argv:
-        return "psbfl"
-    if "wit-hw" in argv:
-        return "withw"
+    try:
+        generation_index = argv.index("generation")
+    except ValueError:
+        raise SbflBatchError("logged command has no generation subcommand") from None
+    try:
+        end = argv.index("--", generation_index + 1)
+    except ValueError:
+        end = len(argv)
+    modes = {"psbfl": "psbfl", "random": "random", "wit-hw": "withw"}
+    for argument in reversed(argv[generation_index + 1 : end]):
+        if argument in modes:
+            return modes[argument]
     raise SbflBatchError("cannot determine generation mode from logged command")
 
 

@@ -40,23 +40,21 @@ def prepare_rerun(args: Namespace) -> tuple[GenerationConfig, list]:
 
     first = commands[0][1]
     mode = generation_mode(first)
+    psbfl_options = ("mutator_window_size", "mutator_weight_strategy")
+    withw_options = (
+        "max_corpus_size",
+        "init_seed_rate",
+        "mutate_rate",
+        "priority_alpha",
+        "failed_reward",
+    )
     if mode == "psbfl":
-        wrong = [
-            name
-            for name in (
-                "max_corpus_size",
-                "init_seed_rate",
-                "mutate_rate",
-                "priority_alpha",
-                "failed_reward",
-            )
-            if getattr(args, name) is not None
-        ]
+        wrong = [name for name in withw_options if getattr(args, name) is not None]
+    elif mode == "withw":
+        wrong = [name for name in psbfl_options if getattr(args, name) is not None]
     else:
         wrong = [
-            name
-            for name in ("mutator_window_size", "mutator_weight_strategy")
-            if getattr(args, name) is not None
+            name for name in (*psbfl_options, *withw_options) if getattr(args, name) is not None
         ]
     if wrong:
         raise SbflBatchError(f"options do not apply to inherited {mode} mode: {', '.join(wrong)}")

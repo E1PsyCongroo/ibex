@@ -18,3 +18,11 @@ def test_parse_shell_escaped_run_command(tmp_path: Path) -> None:
     assert option_value(argv, "--selection") == "diverse"
     assert generation_mode(argv) == "psbfl"
     assert trailing_args(argv) == ["-c", "123", "-x"]
+
+
+def test_random_generation_mode_is_not_confused_with_random_selection() -> None:
+    assert generation_mode(["/tmp/sbfl", "generation", "--selection", "random", "psbfl"]) == "psbfl"
+    assert (
+        generation_mode(["/tmp/sbfl", "generation", "--selection", "random", "random", "--", "-x"])
+        == "random"
+    )

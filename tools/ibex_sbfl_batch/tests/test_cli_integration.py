@@ -175,3 +175,42 @@ def test_generation_rerun_and_analysis_argv(tmp_path: Path, monkeypatch, capsys)
     assert " analysis " in analysis_command
     assert "--selection random" in analysis_command
     assert f"--input {case_log / 'saved_corpus'}" in analysis_command
+
+
+def test_random_generation_argv(tmp_path: Path, monkeypatch, capsys) -> None:
+    home, input_elf, diff = _prepare_fixture(tmp_path, monkeypatch)
+    logs = tmp_path / "random-logs"
+
+    assert (
+        main(
+            [
+                "generation",
+                "random",
+                "--case",
+                str(diff),
+                "--workdir",
+                str(home),
+                "--input",
+                str(input_elf),
+                "--logs",
+                str(logs),
+                "--tmp",
+                str(tmp_path / "random-tmp"),
+                "--selection",
+                "random",
+                "--dry-run",
+                "--",
+                "-c",
+                "321",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    command = next(logs.rglob("run.log")).read_text(encoding="utf-8")
+    assert " generation " in command
+    assert "--selection random" in command
+    assert " random -- -c 321" in command
+    assert " psbfl " not in command
+    assert " wit-hw " not in command
