@@ -1,0 +1,35 @@
+// Copyright lowRISC contributors.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+// Limit Verilator coverage to the RTL reachable from ibex_core. Start with
+// coverage disabled for every source file, then enable the explicit whitelist
+// supplied by ibex_pkg.core, ibex_icache.core and ibex_core.core.
+
+`verilator_config
+
+coverage_off -file "*"
+
+coverage_on -file "*/rtl/ibex_pkg.sv"
+// coverage_on -file "*/rtl/ibex_icache.sv"
+
+coverage_on -file "*/rtl/ibex_alu.sv"
+coverage_on -file "*/rtl/ibex_branch_predict.sv"
+coverage_on -file "*/rtl/ibex_compressed_decoder.sv"
+coverage_on -file "*/rtl/ibex_controller.sv"
+coverage_on -file "*/rtl/ibex_cs_registers.sv"
+// coverage_on -file "*/rtl/ibex_csr.sv"
+coverage_on -file "*/rtl/ibex_counter.sv"
+coverage_on -file "*/rtl/ibex_decoder.sv"
+coverage_on -file "*/rtl/ibex_ex_block.sv"
+coverage_on -file "*/rtl/ibex_fetch_fifo.sv"
+coverage_on -file "*/rtl/ibex_id_stage.sv"
+coverage_on -file "*/rtl/ibex_if_stage.sv"
+coverage_on -file "*/rtl/ibex_load_store_unit.sv"
+coverage_on -file "*/rtl/ibex_multdiv_fast.sv"
+coverage_on -file "*/rtl/ibex_multdiv_slow.sv"
+coverage_on -file "*/rtl/ibex_prefetch_buffer.sv"
+coverage_on -file "*/rtl/ibex_pmp.sv"
+coverage_on -file "*/rtl/ibex_wb_stage.sv"
+coverage_on -file "*/rtl/ibex_dummy_instr.sv"
+coverage_on -file "*/rtl/ibex_core.sv"

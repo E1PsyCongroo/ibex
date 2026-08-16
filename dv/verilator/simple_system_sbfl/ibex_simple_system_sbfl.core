@@ -27,6 +27,10 @@ filesets:
       - src/vsrc/ibex_simple_system_cosim_checker_bind.sv
     file_type: systemVerilogSource
 
+  files_verilator_coverage:
+    files:
+      - src/vsrc/verilator_coverage.vlt: { file_type: vlt }
+
 parameters:
   RV32E:
     datatype: int
@@ -181,6 +185,9 @@ targets:
 
   sim:
     <<: *default_target
+    filesets:
+      - files_sbfl
+      - tool_verilator ? (files_verilator_coverage)
     default_tool: verilator
     tools:
       vcs:
@@ -199,10 +206,11 @@ targets:
           - '--trace-max-array 1024'
           - '--coverage-line'
           - '--coverage-expr'
+          - '--coverage-toggle'
           - '-CFLAGS "-std=c++17 -Wall -DVL_USER_STOP -DVM_TRACE_FMT_FST -DTOPLEVEL_NAME=ibex_simple_system -g `pkg-config --cflags riscv-riscv riscv-disasm riscv-fdt`"'
           - '-LDFLAGS "-pthread -lutil -lelf `pkg-config --libs riscv-riscv riscv-disasm riscv-fdt`"'
           - '-LDFLAGS "$$IBEX_HOME/target/release/libcpusbfl.so"'
-          # - '-Wall'
+          - '-Wall'
           - '-Wno-UNOPTFLAT'
           # RAM primitives wider than 64bit (required for ECC) fail to build in
           # Verilator without increasing the unroll count (see Verilator#1266)
