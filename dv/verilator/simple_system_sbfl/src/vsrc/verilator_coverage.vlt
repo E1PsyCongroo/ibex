@@ -2,23 +2,29 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-// Limit Verilator coverage to the RTL reachable from ibex_core. Start with
-// coverage disabled for every source file, then enable the explicit whitelist
-// supplied by ibex_pkg.core, ibex_icache.core and ibex_core.core.
+// SBFL-oriented coverage configuration.
+//
+// Coverage instrumentation is enabled by the command line. Suppress every non-core
+// source family loaded by the simple-system target, leaving the CPU RTL listed
+// below as the effective whitelist. Module inputs are disabled at their
+// declaration lines: their toggles are stimulus/boundary coverage and cannot
+// be attributed to a statement in that module. This also removes all clk/reset
+// input toggle points.
+//
+// The line numbers below intentionally follow the current RTL revision. Update
+// them when a module port list or one of the explicitly excluded blocks moves.
 
 `verilator_config
 
 coverage_off -file "*"
 
 coverage_on -file "*/rtl/ibex_pkg.sv"
-// coverage_on -file "*/rtl/ibex_icache.sv"
 
 coverage_on -file "*/rtl/ibex_alu.sv"
 coverage_on -file "*/rtl/ibex_branch_predict.sv"
 coverage_on -file "*/rtl/ibex_compressed_decoder.sv"
 coverage_on -file "*/rtl/ibex_controller.sv"
 coverage_on -file "*/rtl/ibex_cs_registers.sv"
-// coverage_on -file "*/rtl/ibex_csr.sv"
 coverage_on -file "*/rtl/ibex_counter.sv"
 coverage_on -file "*/rtl/ibex_decoder.sv"
 coverage_on -file "*/rtl/ibex_ex_block.sv"
@@ -33,3 +39,304 @@ coverage_on -file "*/rtl/ibex_pmp.sv"
 coverage_on -file "*/rtl/ibex_wb_stage.sv"
 coverage_on -file "*/rtl/ibex_dummy_instr.sv"
 coverage_on -file "*/rtl/ibex_core.sv"
+
+// Module input declarations. Outputs and internal signals remain covered.
+// ibex_alu
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 12 - 14
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 16
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 18 - 19
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 21
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 23
+
+// ibex_branch_predict
+coverage_off -file "*/rtl/ibex_branch_predict.sv" -lines 21 - 22
+coverage_off -file "*/rtl/ibex_branch_predict.sv" -lines 25 - 27
+
+// ibex_compressed_decoder
+coverage_off -file "*/rtl/ibex_compressed_decoder.sv" -lines 20 - 24
+
+// ibex_controller
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 18 - 19
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 24 - 30
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 33 - 40
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 47
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 61 - 64
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 69
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 71 - 72
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 75 - 77
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 79
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 83
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 88 - 91
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 100
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 103 - 104
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 106
+
+// ibex_cs_registers
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 36 - 37
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 40
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 49 - 50
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 53 - 57
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 61 - 65
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 78 - 81
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 88 - 90
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 100
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 103 - 110
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 116 - 128
+
+// ibex_counter
+coverage_off -file "*/rtl/ibex_counter.sv" -lines 12 - 13
+coverage_off -file "*/rtl/ibex_counter.sv" -lines 15 - 18
+
+// ibex_decoder
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 22 - 23
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 34
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 38 - 40
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 43
+
+// ibex_ex_block
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 16 - 17
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 20 - 23
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 27 - 28
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 31 - 40
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 45
+
+// ibex_fetch_fifo
+coverage_off -file "*/rtl/ibex_fetch_fifo.sv" -lines 19 - 20
+coverage_off -file "*/rtl/ibex_fetch_fifo.sv" -lines 23
+coverage_off -file "*/rtl/ibex_fetch_fifo.sv" -lines 27 - 30
+coverage_off -file "*/rtl/ibex_fetch_fifo.sv" -lines 34
+
+// ibex_id_stage
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 30 - 31
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 37 - 42
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 47
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 51
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 61 - 63
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 65
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 68 - 69
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 76 - 77
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 107 - 110
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 119
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 124 - 125
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 128 - 131
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 134 - 137
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 147 - 151
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 154 - 155
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 159
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 161
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 173 - 175
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 180 - 182
+
+// ibex_if_stage
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 35 - 36
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 38 - 39
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 44 - 47
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 55
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 60 - 61
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 89 - 90
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 93 - 96
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 98 - 100
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 102 - 107
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 111
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 114
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 116
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 118
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 122
+
+// ibex_load_store_unit
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 21 - 22
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 26 - 29
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 35
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 38 - 41
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 45
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 47
+
+// ibex_multdiv_fast
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 20 - 33
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 38
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 42
+
+// ibex_multdiv_slow
+coverage_off -file "*/rtl/ibex_multdiv_slow.sv" -lines 16 - 29
+coverage_off -file "*/rtl/ibex_multdiv_slow.sv" -lines 34
+coverage_off -file "*/rtl/ibex_multdiv_slow.sv" -lines 38
+
+// ibex_prefetch_buffer
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 15 - 16
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 18
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 20 - 21
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 23
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 32
+coverage_off -file "*/rtl/ibex_prefetch_buffer.sv" -lines 34 - 36
+
+// ibex_pmp
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 19 - 21
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 23
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 25
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 27 - 28
+
+// ibex_wb_stage
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 22 - 23
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 25 - 29
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 41 - 43
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 45
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 47 - 48
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 58 - 59
+
+// ibex_dummy_instr
+coverage_off -file "*/rtl/ibex_dummy_instr.sv" -lines 17 - 18
+coverage_off -file "*/rtl/ibex_dummy_instr.sv" -lines 21 - 24
+coverage_off -file "*/rtl/ibex_dummy_instr.sv" -lines 27 - 28
+
+// ibex_core
+coverage_off -file "*/rtl/ibex_core.sv" -lines 59 - 60
+coverage_off -file "*/rtl/ibex_core.sv" -lines 62 - 63
+coverage_off -file "*/rtl/ibex_core.sv" -lines 67 - 68
+coverage_off -file "*/rtl/ibex_core.sv" -lines 70 - 71
+coverage_off -file "*/rtl/ibex_core.sv" -lines 75 - 76
+coverage_off -file "*/rtl/ibex_core.sv" -lines 81 - 82
+coverage_off -file "*/rtl/ibex_core.sv" -lines 92 - 93
+coverage_off -file "*/rtl/ibex_core.sv" -lines 100
+coverage_off -file "*/rtl/ibex_core.sv" -lines 105 - 106
+coverage_off -file "*/rtl/ibex_core.sv" -lines 110 - 114
+coverage_off -file "*/rtl/ibex_core.sv" -lines 118
+coverage_off -file "*/rtl/ibex_core.sv" -lines 170
+
+// Verification/debug mirrors and functional-coverage helper signals.
+coverage_off -file "*/rtl/ibex_core.sv" -lines 119
+coverage_off -file "*/rtl/ibex_core.sv" -lines 127 - 166
+coverage_off -file "*/rtl/ibex_core.sv" -lines 186
+coverage_off -file "*/rtl/ibex_core.sv" -lines 960 - 965
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1228 - 1944
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1953 - 2021
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 901 - 915
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 937 - 943
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1091 - 1099
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 66
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 712 - 721
+coverage_off -file "*/rtl/ibex_load_store_unit.sv" -lines 558 - 603
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 255 - 256
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 249
+
+// Internal signals outside every functional module-output cone.
+// Generated with sv-parser using assignment/control dependencies and conservative
+// submodule port propagation. A declaration line is kept when it also declares
+// an output-related signal, because VLT coverage controls are line-granular.
+
+// ibex_alu
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 253 // unused_shift_result_ext
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 1189 // unused_imd_val_q_1
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 1291 // unused_imd_val_q
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 1293 // unused_butterfly_result
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 1295 // unused_invbutterfly_result
+coverage_off -file "*/rtl/ibex_alu.sv" -lines 1397 // unused_shift_amt_compl
+
+// ibex_compressed_decoder
+coverage_off -file "*/rtl/ibex_compressed_decoder.sv" -lines 36 // unused_valid
+coverage_off -file "*/rtl/ibex_compressed_decoder.sv" -lines 37 // unused_id_in_ready
+coverage_off -file "*/rtl/ibex_compressed_decoder.sv" -lines 60 // unused_tmp
+
+// ibex_controller
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 160 // unused_irq_timer
+coverage_off -file "*/rtl/ibex_controller.sv" -lines 359 // unused_mem_resp_intg_err_i
+
+// ibex_cs_registers
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 134 // unused_cfg
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 270 // unused_mhpmcounter_we_1
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 271 // unused_mhpmcounterh_we_1
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 272 // unused_mhpmcounter_incr_1
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 303 // unused_boot_addr
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 304 // unused_csr_addr
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1400 // unused_mhpmcounter_next
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1409 // unused_instr_ret_compressed_spec_i
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1416 // unused_mhphcounter_we
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1417 // unused_mhphcounterh_we
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1418 // unused_mhphcounter_incr
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1585 // unused_dit
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1606 // unused_dummy_en
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1607 // unused_dummy_mask
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1639 // unused_icen
+coverage_off -file "*/rtl/ibex_cs_registers.sv" -lines 1646 // unused_ic_scr_key_valid
+
+// ibex_counter
+coverage_off -file "*/rtl/ibex_counter.sv" -lines 87 // unused_counter_load
+
+// ibex_decoder
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 110 // unused_instr_alu
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 157 // unused_clk
+coverage_off -file "*/rtl/ibex_decoder.sv" -lines 158 // unused_rst_n
+
+// ibex_ex_block
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 96 // unused_bt_carry
+coverage_off -file "*/rtl/ibex_ex_block.sv" -lines 104 // unused_bt_a_operand, unused_bt_b_operand
+
+// ibex_fetch_fifo
+coverage_off -file "*/rtl/ibex_fetch_fifo.sv" -lines 62 // unused_addr_in
+
+// ibex_id_stage
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 366 // unused_a_mux_sel
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 367 // unused_b_mux_sel
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1052 // unused_data_req_done_ex
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1053 // unused_rf_waddr_wb
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1054 // unused_rf_write_wb
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1055 // unused_outstanding_load_wb
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1056 // unused_outstanding_store_wb
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1057 // unused_wb_exception
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1058 // unused_rf_wdata_fwd_wb
+coverage_off -file "*/rtl/ibex_id_stage.sv" -lines 1059 // unused_id_exception
+
+// ibex_if_stage
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 76 // fcov_dummy_instr_type, fcov_insert_dummy_instr
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 79 // unused_fcov_dummy_instr_type, unused_fcov_insert_dummy_instr
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 138 // unused_fetch_addr_n0
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 183 // unused_boot_addr
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 184 // unused_csr_mtvec
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 185 // unused_exc_cause
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 353 // unused_icen, unused_icinv, unused_scr_key_valid
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 354 // unused_tag_ram_input
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 355 // unused_data_ram_input
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 473 // unused_dummy_en
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 474 // unused_dummy_mask
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 475 // unused_dummy_seed_en
+coverage_off -file "*/rtl/ibex_if_stage.sv" -lines 476 // unused_dummy_seed
+
+// ibex_multdiv_fast
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 88 // sva_mul_fsm_idle
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 95 // unused_mult_sel_i
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 130 // unused_imd_val
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 132 // unused_mac_res_ext
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 149 // unused_mult1_res_uns
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 386 // unused_alu_adder_ext
+coverage_off -file "*/rtl/ibex_multdiv_fast.sv" -lines 545 // unused_sva_mul_fsm_idle
+
+// ibex_multdiv_slow
+coverage_off -file "*/rtl/ibex_multdiv_slow.sv" -lines 53 // unused_imd_val0
+coverage_off -file "*/rtl/ibex_multdiv_slow.sv" -lines 54 // unused_imd_val1
+
+// ibex_pmp
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 64 // unused_cfg
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 72 // fcov_pmp_region_override
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 76 // unused_fcov_pmp_region_override
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 230 // unused_sigs
+coverage_off -file "*/rtl/ibex_pmp.sv" -lines 261 // unused_csr_pmp_mseccfg_rlb
+
+// ibex_wb_stage
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 114 // fcov_wb_valid
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 119 // unused_fcov_wb_valid
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 192 // unused_dummy_instr_id
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 221 // unused_clk
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 222 // unused_rst
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 223 // unused_instr_type_wb
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 224 // unused_pc_id
+coverage_off -file "*/rtl/ibex_wb_stage.sv" -lines 225 // unused_dummy_instr_id
+
+// ibex_core
+coverage_off -file "*/rtl/ibex_core.sv" -lines 545 // unused_fetch_enable
+coverage_off -file "*/rtl/ibex_core.sv" -lines 887 // unused_expecting_load_resp_id
+coverage_off -file "*/rtl/ibex_core.sv" -lines 888 // unused_expecting_store_resp_id
+coverage_off -file "*/rtl/ibex_core.sv" -lines 943 // unused_rf_ren_a, unused_rf_ren_b
+coverage_off -file "*/rtl/ibex_core.sv" -lines 944 // unused_rf_rd_a_wb_match, unused_rf_rd_b_wb_match
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1213 // unused_priv_lvl_ls
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1214 // unused_csr_pmp_addr
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1215 // unused_csr_pmp_cfg
+coverage_off -file "*/rtl/ibex_core.sv" -lines 1216 // unused_csr_pmp_mseccfg
