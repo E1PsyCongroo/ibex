@@ -214,10 +214,29 @@ def has_option(arguments: Sequence[str], name: str) -> bool:
     )
 
 
+def option_value(arguments: Sequence[str], name: str) -> str | None:
+    for index, argument in enumerate(arguments):
+        if argument.startswith(f"{name}="):
+            return argument.split("=", 1)[1]
+        if argument == name and index + 1 < len(arguments):
+            return arguments[index + 1]
+    return None
+
+
 def with_default_model(arguments: Sequence[str]) -> list[str]:
     result = list(arguments)
     if not has_option(result, "--model"):
         result.extend(["--model", "gpt-5.5"])
+    return result
+
+
+def with_model_api_compatibility(arguments: Sequence[str]) -> list[str]:
+    result = list(arguments)
+    model = option_value(result, "--model")
+    if model is None or not model.lower().rsplit("/", 1)[-1].startswith("claude-"):
+        return result
+    if not has_option(result, "--api-protocol"):
+        result.extend(["--api-protocol", "anthropic"])
     return result
 
 
@@ -644,7 +663,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
-    forwarded = with_default_model(forwarded)
+    forwarded = with_model_api_compatibility(with_default_model(forwarded))
     print(
         f"[INFO] discovered={len(selected_results)}, selected={len(selected)}, "
         f"skipped={skipped}, incomplete={len(incomplete_dirs)}"

@@ -1,4 +1,4 @@
-"""OpenAI SDK adapter with structured-output fallback and strict validation."""
+"""Anthropic and OpenAI SDK adapters with strict response validation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+from anthropic import Anthropic, transform_schema
 from openai import OpenAI
 from pydantic import ValidationError
 
@@ -27,6 +28,15 @@ def normalize_base_url(base_url: str) -> str:
     value = base_url.rstrip("/")
     if value.endswith("/responses"):
         return value[: -len("/responses")]
+    return value
+
+
+def normalize_anthropic_base_url(base_url: str) -> str:
+    value = base_url.rstrip("/")
+    if value.endswith("/messages"):
+        value = value[: -len("/messages")]
+    if value.endswith("/v1"):
+        value = value[: -len("/v1")]
     return value
 
 
@@ -104,6 +114,8 @@ def _text_format(mode: str, *, include_reason: bool) -> dict[str, Any] | None:
 
 def _status_code(exc: Exception) -> int | None:
     value = getattr(exc, "status_code", None)
+    if not isinstance(value, int):
+        value = getattr(getattr(exc, "response", None), "status_code", None)
     return int(value) if isinstance(value, int) else None
 
 
@@ -118,6 +130,7 @@ def _structured_output_unsupported(exc: Exception) -> bool:
             "json_schema",
             "json schema",
             "structured output",
+            "output_config",
         )
     )
 
@@ -131,15 +144,101 @@ def _transient(exc: Exception) -> bool:
 
 
 def _usage_dict(response: Any) -> dict[str, int]:
-    usage = getattr(response, "usage", None)
+    usage = (
+        response.get("usage")
+        if isinstance(response, dict)
+        else getattr(response, "usage", None)
+    )
     if usage is None:
         return {}
+
+    def usage_value(field: str) -> Any:
+        return usage.get(field) if isinstance(usage, dict) else getattr(usage, field, None)
+
     result: dict[str, int] = {}
-    for field in ("input_tokens", "output_tokens", "total_tokens"):
-        value = getattr(usage, field, None)
+    fields = {
+        "input_tokens": ("input_tokens", "prompt_tokens"),
+        "output_tokens": ("output_tokens", "completion_tokens"),
+        "total_tokens": ("total_tokens",),
+    }
+    for output_field, source_fields in fields.items():
+        value = next(
+            (
+                candidate
+                for field in source_fields
+                if isinstance((candidate := usage_value(field)), int)
+            ),
+            None,
+        )
         if isinstance(value, int):
-            result[field] = value
+            result[output_field] = value
+    if "total_tokens" not in result and {"input_tokens", "output_tokens"} <= result.keys():
+        result["total_tokens"] = result["input_tokens"] + result["output_tokens"]
     return result
+
+
+def _chat_response_format(mode: str, *, include_reason: bool) -> dict[str, Any] | None:
+    text_format = _text_format(mode, include_reason=include_reason)
+    if text_format is None or text_format["type"] == "json_object":
+        return text_format
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": text_format["name"],
+            "strict": text_format["strict"],
+            "schema": text_format["schema"],
+        },
+    }
+
+
+def _chat_output_text(response: Any) -> str:
+    choices = getattr(response, "choices", None)
+    if not choices:
+        return ""
+    message = getattr(choices[0], "message", None)
+    content = getattr(message, "content", "")
+    return content if isinstance(content, str) else ""
+
+
+def _anthropic_output_text(response: Any) -> str:
+    content = (
+        response.get("content")
+        if isinstance(response, dict)
+        else getattr(response, "content", None)
+    )
+    if not isinstance(content, list):
+        return ""
+    texts: list[str] = []
+    for block in content:
+        block_type = (
+            block.get("type")
+            if isinstance(block, dict)
+            else getattr(block, "type", None)
+        )
+        block_text = (
+            block.get("text")
+            if isinstance(block, dict)
+            else getattr(block, "text", None)
+        )
+        if block_type == "text" and isinstance(block_text, str):
+            texts.append(block_text)
+    return "".join(texts)
+
+
+def _anthropic_response_format(
+    mode: str,
+    *,
+    include_reason: bool,
+) -> dict[str, Any] | None:
+    if mode != "json_schema":
+        return None
+    response_type = ReasonedAssessmentResponse if include_reason else AssessmentResponse
+    return {
+        "format": {
+            "type": "json_schema",
+            "schema": transform_schema(response_type.model_json_schema()),
+        }
+    }
 
 
 def call_model(
@@ -155,23 +254,39 @@ def call_model(
     retries: int,
     retry_delay: float,
     structured_output: str,
+    api_protocol: str = "responses",
+    max_output_tokens: int = 8192,
     include_reason: bool = False,
 ) -> ApiResult:
-    # The SDK requires credential configuration at construction time. A callable
-    # returning an empty string satisfies that configuration without emitting an
-    # Authorization header for explicitly no-auth compatible endpoints.
+    # Both SDKs require credential configuration at construction time. These
+    # placeholders also allow explicitly no-auth compatible gateway endpoints.
     credential = api_key if api_key else (lambda: "")
-    client = OpenAI(
-        api_key=credential,
-        base_url=normalize_base_url(api_base),
-        timeout=timeout,
-        max_retries=0,
-    )
-    modes = {
+    openai_client = None
+    anthropic_client = None
+    if api_protocol == "anthropic":
+        anthropic_client = Anthropic(
+            api_key=api_key or "no-auth",
+            base_url=normalize_anthropic_base_url(api_base),
+            timeout=timeout,
+            max_retries=0,
+        )
+    else:
+        openai_client = OpenAI(
+            api_key=credential,
+            base_url=normalize_base_url(api_base),
+            timeout=timeout,
+            max_retries=0,
+        )
+    all_modes = {
         "strict": ["json_schema"],
         "auto": ["json_schema", "json_object", "prompt_only"],
         "off": ["prompt_only"],
     }[structured_output]
+    modes = (
+        [mode for mode in all_modes if mode != "json_object"]
+        if api_protocol == "anthropic"
+        else all_modes
+    )
     mode_index = 0
     input_items: list[dict[str, str]] = [{"role": "user", "content": user_prompt}]
     attempts = 0
@@ -181,20 +296,56 @@ def call_model(
 
     while True:
         mode = modes[mode_index]
-        payload: dict[str, Any] = {
-            "model": model,
-            "instructions": system_prompt,
-            "input": input_items,
-            "store": False,
-        }
-        text_format = _text_format(mode, include_reason=include_reason)
-        if text_format is not None:
-            payload["text"] = {"format": text_format}
+        if api_protocol == "anthropic":
+            payload: dict[str, Any] = {
+                "model": model,
+                "max_tokens": max_output_tokens,
+                "system": system_prompt,
+                "messages": input_items,
+            }
+            output_config = _anthropic_response_format(
+                mode,
+                include_reason=include_reason,
+            )
+            if output_config is not None:
+                payload["output_config"] = output_config
+        elif api_protocol == "chat-completions":
+            payload: dict[str, Any] = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    *input_items,
+                ],
+            }
+            response_format = _chat_response_format(
+                mode,
+                include_reason=include_reason,
+            )
+            if response_format is not None:
+                payload["response_format"] = response_format
+        else:
+            payload = {
+                "model": model,
+                "instructions": system_prompt,
+                "input": input_items,
+                "store": False,
+            }
+            text_format = _text_format(mode, include_reason=include_reason)
+            if text_format is not None:
+                payload["text"] = {"format": text_format}
         if temperature is not None:
             payload["temperature"] = temperature
         attempts += 1
         try:
-            response = client.responses.create(**payload)
+            if api_protocol == "anthropic":
+                assert anthropic_client is not None
+                response = anthropic_client.messages.create(**payload)
+            elif api_protocol == "chat-completions":
+                assert openai_client is not None
+                response = openai_client.chat.completions.create(**payload)
+            else:
+                assert openai_client is not None
+                response = openai_client.responses.create(**payload)
         except Exception as exc:
             if mode_index + 1 < len(modes) and _structured_output_unsupported(exc):
                 mode_index += 1
@@ -206,13 +357,24 @@ def call_model(
                 continue
             raise SbflLlmError(f"LLM API request failed: {exc}") from exc
 
-        raw_text = getattr(response, "output_text", "")
+        if api_protocol == "anthropic":
+            raw_text = _anthropic_output_text(response)
+        elif api_protocol == "chat-completions":
+            raw_text = _chat_output_text(response)
+        else:
+            raw_text = getattr(response, "output_text", "")
         if not isinstance(raw_text, str) or not raw_text.strip():
             status = getattr(response, "status", None)
             error = getattr(response, "error", None)
-            detail = error or getattr(response, "incomplete_details", None) or status
+            detail = (
+                error
+                or getattr(response, "incomplete_details", None)
+                or getattr(response, "stop_reason", None)
+                or status
+            )
             raise SbflLlmError(
-                "LLM Responses API returned no output_text" + (f": {detail}" if detail else "")
+                f"LLM {api_protocol} API returned no text"
+                + (f": {detail}" if detail else "")
             )
 
         try:
@@ -249,4 +411,5 @@ def call_model(
             structured_output=mode,
             attempts=attempts,
             elapsed_seconds=time.monotonic() - started,
+            api=api_protocol,
         )

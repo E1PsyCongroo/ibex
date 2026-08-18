@@ -59,3 +59,4 @@ class ApiResult:
     structured_output: str
     attempts: int
     elapsed_seconds: float
+    api: str = "responses"

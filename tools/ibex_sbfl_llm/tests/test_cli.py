@@ -18,6 +18,7 @@ def test_include_reason_is_opt_in():
         ["rerank", "rtl", "result", "--dry-run", "--include-reason"]
     )
     assert default_args.include_reason is False
+    assert default_args.structured_output == "auto"
     assert reasoned_args.include_reason is True
 
 

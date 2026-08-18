@@ -3,8 +3,8 @@ import json
 import pytest
 
 from ibex_sbfl_llm.errors import ModelResponseError
+from ibex_sbfl_llm.llm_client import validate_assessments
 from ibex_sbfl_llm.models import Candidate
-from ibex_sbfl_llm.openai_client import validate_assessments
 
 
 def candidate():

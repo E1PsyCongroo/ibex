@@ -8,7 +8,7 @@ from typing import Any
 from . import __version__
 from .errors import SbflLlmError
 from .io_utils import atomic_write_json, atomic_write_text, sha256_file
-from .openai_client import call_model
+from .llm_client import call_model
 from .patching import prepare_rtl_workspace
 from .prompting import (
     build_user_prompt,
@@ -79,14 +79,22 @@ def run_rerank(args: Any) -> int:
             print(f"prompt_sha256={hashes['prompt_sha256']}")
             return 0
 
-        api_key = os.environ.get(args.api_key_env) if args.api_key_env else None
-        if args.api_key_env and api_key is None:
+        is_anthropic = args.api_protocol == "anthropic"
+        api_base = args.api_base or os.environ.get(
+            "ANTHROPIC_BASE_URL" if is_anthropic else "OPENAI_BASE_URL",
+            "https://api.anthropic.com" if is_anthropic else "https://api.openai.com/v1",
+        )
+        api_key_env = args.api_key_env
+        if api_key_env is None:
+            api_key_env = "ANTHROPIC_API_KEY" if is_anthropic else "OPENAI_API_KEY"
+        api_key = os.environ.get(api_key_env) if api_key_env else None
+        if api_key_env and api_key is None:
             raise SbflLlmError(
-                f"API key environment variable {args.api_key_env!r} is not set; "
+                f"API key environment variable {api_key_env!r} is not set; "
                 "set it or pass --api-key-env '' for a no-auth compatible endpoint"
             )
         api_result = call_model(
-            api_base=args.api_base,
+            api_base=api_base,
             api_key=api_key,
             model=args.model,
             system_prompt=system_prompt,
@@ -97,6 +105,8 @@ def run_rerank(args: Any) -> int:
             retries=args.retries,
             retry_delay=args.retry_delay,
             structured_output=args.structured_output,
+            api_protocol=args.api_protocol,
+            max_output_tokens=args.max_output_tokens,
             include_reason=include_reason,
         )
         assessments = rank_candidates(
@@ -134,13 +144,14 @@ def run_rerank(args: Any) -> int:
             "structured_output": args.structured_output,
             "include_reason": include_reason,
             "temperature": args.temperature,
+            "max_output_tokens": args.max_output_tokens,
             "timeout": args.timeout,
             "retries": args.retries,
             "retry_delay": args.retry_delay,
         }
         request = {
             **hashes,
-            "api": "responses",
+            "api": api_result.api,
             "structured_output": api_result.structured_output,
             "response_id": api_result.response_id,
             "attempts": api_result.attempts,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -85,13 +84,24 @@ def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     model.add_argument(
         "--api-base",
-        default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-        help="OpenAI-compatible API URL; OPENAI_BASE_URL overrides the built-in default",
+        help=(
+            "API URL; defaults to ANTHROPIC_BASE_URL for the anthropic protocol "
+            "or OPENAI_BASE_URL for OpenAI protocols"
+        ),
+    )
+    model.add_argument(
+        "--api-protocol",
+        choices=["anthropic", "responses", "chat-completions"],
+        default="responses",
+        help="request protocol: Claude Messages or an OpenAI-compatible API",
     )
     model.add_argument(
         "--api-key-env",
-        default="OPENAI_API_KEY",
-        help="environment variable containing the API key; pass an empty value for no auth",
+        help=(
+            "environment variable containing the API key; defaults to "
+            "ANTHROPIC_API_KEY or OPENAI_API_KEY based on the protocol; pass an "
+            "empty value for no auth"
+        ),
     )
     model.add_argument(
         "--timeout",
@@ -104,6 +114,13 @@ def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
         "--temperature",
         type=float,
         help="sampling temperature (default: provider/model default)",
+    )
+    model.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=8192,
+        metavar="N",
+        help="maximum output tokens for the Claude Messages API",
     )
     model.add_argument(
         "--retries",
@@ -221,7 +238,12 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
             parser.error("source limits are invalid")
         if not 0.0 <= args.llm_weight <= 1.0:
             parser.error("--llm-weight must be between 0 and 1")
-        if args.retries < 0 or args.retry_delay < 0 or args.timeout <= 0:
+        if (
+            args.retries < 0
+            or args.retry_delay < 0
+            or args.timeout <= 0
+            or args.max_output_tokens <= 0
+        ):
             parser.error("retry and timeout values are invalid")
         if not args.dry_run and not args.model:
             parser.error("--model is required unless --dry-run is used")
