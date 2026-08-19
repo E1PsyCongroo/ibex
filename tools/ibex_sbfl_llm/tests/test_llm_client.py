@@ -73,6 +73,7 @@ def test_structured_output_falls_back_to_json_object(monkeypatch):
     assert calls[1]["text"]["format"]["type"] == "json_object"
     assert calls[0]["instructions"] == "system"
     assert calls[0]["input"] == [{"role": "user", "content": "user JSON"}]
+    assert calls[0]["reasoning"] == {"effort": "high"}
     assert calls[0]["store"] is False
     assert str(FakeOpenAI.instance.kwargs["base_url"]) == "http://localhost:8000/v1"
 
@@ -200,6 +201,7 @@ def test_chat_completions_protocol(monkeypatch):
         {"role": "user", "content": "user JSON"},
     ]
     assert calls[0]["response_format"]["type"] == "json_schema"
+    assert calls[0]["reasoning_effort"] == "high"
 
 
 class FakeAnthropicMessages:
@@ -275,3 +277,4 @@ def test_anthropic_messages_protocol_uses_anthropic_sdk(monkeypatch):
     assert call["temperature"] == 0.2
     assert call["output_config"]["format"]["type"] == "json_schema"
     assert "schema" in call["output_config"]["format"]
+    assert call["output_config"]["effort"] == "high"

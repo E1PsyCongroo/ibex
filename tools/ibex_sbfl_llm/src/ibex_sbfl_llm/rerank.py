@@ -107,6 +107,7 @@ def run_rerank(args: Any) -> int:
             structured_output=args.structured_output,
             api_protocol=args.api_protocol,
             max_output_tokens=args.max_output_tokens,
+            reasoning_effort=args.reasoning_effort,
             include_reason=include_reason,
         )
         assessments = rank_candidates(
@@ -145,6 +146,7 @@ def run_rerank(args: Any) -> int:
             "include_reason": include_reason,
             "temperature": args.temperature,
             "max_output_tokens": args.max_output_tokens,
+            "reasoning_effort": args.reasoning_effort,
             "timeout": args.timeout,
             "retries": args.retries,
             "retry_delay": args.retry_delay,

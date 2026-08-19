@@ -123,6 +123,12 @@ def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
         help="maximum output tokens for the Claude Messages API",
     )
     model.add_argument(
+        "--reasoning-effort",
+        choices=["low", "medium", "high"],
+        default="high",
+        help="model reasoning effort shared by Anthropic and OpenAI APIs",
+    )
+    model.add_argument(
         "--retries",
         type=int,
         default=2,

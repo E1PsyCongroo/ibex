@@ -256,6 +256,7 @@ def call_model(
     structured_output: str,
     api_protocol: str = "responses",
     max_output_tokens: int = 8192,
+    reasoning_effort: str = "high",
     include_reason: bool = False,
 ) -> ApiResult:
     # Both SDKs require credential configuration at construction time. These
@@ -302,16 +303,18 @@ def call_model(
                 "max_tokens": max_output_tokens,
                 "system": system_prompt,
                 "messages": input_items,
+                "output_config": {"effort": reasoning_effort},
             }
-            output_config = _anthropic_response_format(
+            response_format = _anthropic_response_format(
                 mode,
                 include_reason=include_reason,
             )
-            if output_config is not None:
-                payload["output_config"] = output_config
+            if response_format is not None:
+                payload["output_config"].update(response_format)
         elif api_protocol == "chat-completions":
             payload: dict[str, Any] = {
                 "model": model,
+                "reasoning_effort": reasoning_effort,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     *input_items,
@@ -326,6 +329,7 @@ def call_model(
         else:
             payload = {
                 "model": model,
+                "reasoning": {"effort": reasoning_effort},
                 "instructions": system_prompt,
                 "input": input_items,
                 "store": False,
