@@ -8,7 +8,7 @@ from typing import Any
 from . import __version__
 from .errors import SbflLlmError
 from .io_utils import atomic_write_json, atomic_write_text, sha256_file
-from .llm_client import call_model
+from .llm.llm_client import call_model, resolve_api_protocol
 from .patching import prepare_rtl_workspace
 from .prompting import (
     build_user_prompt,
@@ -79,14 +79,35 @@ def run_rerank(args: Any) -> int:
             print(f"prompt_sha256={hashes['prompt_sha256']}")
             return 0
 
-        is_anthropic = args.api_protocol == "anthropic"
-        api_base = args.api_base or os.environ.get(
-            "ANTHROPIC_BASE_URL" if is_anthropic else "OPENAI_BASE_URL",
-            "https://api.anthropic.com" if is_anthropic else "https://api.openai.com/v1",
-        )
+        api_protocol = resolve_api_protocol(args.model, args.api_protocol)
+        is_anthropic = api_protocol == "anthropic"
+        is_zai = api_protocol == "zai"
+        if is_anthropic:
+            default_api_base = os.environ.get(
+                "ANTHROPIC_BASE_URL", "https://api.anthropic.com"
+            )
+        elif is_zai:
+            default_api_base = os.environ.get("ZAI_BASE_URL") or os.environ.get(
+                "OPENAI_BASE_URL", "https://api.z.ai/api/paas/v4/"
+            )
+        else:
+            default_api_base = os.environ.get(
+                "OPENAI_BASE_URL", "https://api.openai.com/v1"
+            )
+        api_base = args.api_base or default_api_base
         api_key_env = args.api_key_env
         if api_key_env is None:
-            api_key_env = "ANTHROPIC_API_KEY" if is_anthropic else "OPENAI_API_KEY"
+            if is_anthropic:
+                api_key_env = "ANTHROPIC_API_KEY"
+            elif is_zai:
+                api_key_env = (
+                    "OPENAI_API_KEY"
+                    if os.environ.get("OPENAI_API_KEY")
+                    and not os.environ.get("ZAI_API_KEY")
+                    else "ZAI_API_KEY"
+                )
+            else:
+                api_key_env = "OPENAI_API_KEY"
         api_key = os.environ.get(api_key_env) if api_key_env else None
         if api_key_env and api_key is None:
             raise SbflLlmError(
@@ -105,7 +126,7 @@ def run_rerank(args: Any) -> int:
             retries=args.retries,
             retry_delay=args.retry_delay,
             structured_output=args.structured_output,
-            api_protocol=args.api_protocol,
+            api_protocol=api_protocol,
             max_output_tokens=args.max_output_tokens,
             reasoning_effort=args.reasoning_effort,
             include_reason=include_reason,
@@ -113,7 +134,6 @@ def run_rerank(args: Any) -> int:
         assessments = rank_candidates(
             candidates,
             api_result.response,
-            args.ranking_strategy,
             args.llm_weight,
         )
         rankings = [dict(item) for item in assessments[: args.top_k]]
@@ -140,7 +160,6 @@ def run_rerank(args: Any) -> int:
             "effective_snippet_radius": sources.effective_radius,
             "max_source_chars": args.max_source_chars,
             "source_chars": sources.source_chars,
-            "ranking_strategy": args.ranking_strategy,
             "llm_weight": args.llm_weight,
             "structured_output": args.structured_output,
             "include_reason": include_reason,

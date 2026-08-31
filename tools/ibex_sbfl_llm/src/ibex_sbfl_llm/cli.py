@@ -85,46 +85,56 @@ def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
     model.add_argument(
         "--api-base",
         help=(
-            "API URL; defaults to ANTHROPIC_BASE_URL for the anthropic protocol "
-            "or OPENAI_BASE_URL for OpenAI protocols"
+            "API URL; defaults to provider-specific environment variables, with "
+            "OPENAI_BASE_URL accepted as a Z.AI compatibility fallback"
         ),
     )
     model.add_argument(
         "--api-protocol",
-        choices=["anthropic", "responses", "chat-completions"],
-        default="responses",
-        help="request protocol: Claude Messages or an OpenAI-compatible API",
+        choices=[
+            "auto",
+            "anthropic",
+            "zai",
+            "openai-responses",
+            "openai-chat-completions",
+        ],
+        default="auto",
+        help=(
+            "request protocol; auto selects anthropic for claude-*, zai for glm-*, "
+            "and openai-chat-completions otherwise"
+        ),
     )
     model.add_argument(
         "--api-key-env",
         help=(
             "environment variable containing the API key; defaults to "
-            "ANTHROPIC_API_KEY or OPENAI_API_KEY based on the protocol; pass an "
-            "empty value for no auth"
+            "ANTHROPIC_API_KEY, ZAI_API_KEY, or OPENAI_API_KEY based on the "
+            "protocol; pass an empty value for no auth"
         ),
     )
     model.add_argument(
         "--timeout",
         type=float,
-        default=180.0,
+        default=300.0,
         metavar="SECONDS",
         help="timeout for each model request",
     )
     model.add_argument(
         "--temperature",
         type=float,
-        help="sampling temperature (default: provider/model default)",
+        default=0.0,
+        help="sampling temperature",
     )
     model.add_argument(
         "--max-output-tokens",
         type=int,
-        default=8192,
+        default=49152,
         metavar="N",
-        help="maximum output tokens for the Claude Messages API",
+        help="maximum output tokens for Anthropic and Z.AI requests",
     )
     model.add_argument(
         "--reasoning-effort",
-        choices=["low", "medium", "high"],
+        choices=["low", "medium", "high", "max"],
         default="high",
         help="model reasoning effort shared by Anthropic and OpenAI APIs",
     )
@@ -186,17 +196,11 @@ def _add_rerank_parser(subparsers: argparse._SubParsersAction) -> None:
 
     ranking = parser.add_argument_group("ranking")
     ranking.add_argument(
-        "--ranking-strategy",
-        choices=["weighted", "llm-only", "rrf"],
-        default="weighted",
-        help="method used to combine SBFL order and model scores",
-    )
-    ranking.add_argument(
         "--llm-weight",
         type=float,
         default=0.75,
         metavar="FLOAT",
-        help="LLM contribution for the weighted strategy, from 0 to 1",
+        help="LLM contribution from 0 to 1; 1 uses only the LLM score",
     )
     ranking.add_argument(
         "--include-reason",

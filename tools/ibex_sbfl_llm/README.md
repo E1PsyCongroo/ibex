@@ -2,7 +2,7 @@
 
 `ibex_sbfl_llm` contains only the model-facing part of the localization workflow. It
 reads SBFL block candidates, collects patched RTL context, calls an
-OpenAI-compatible API, validates the structured response, and produces a
+LLM-provider API, validates the structured response, and produces a
 reranked JSON result.
 
 Batch generation, checkpoint analysis, summary TSV generation, and statistics
@@ -20,6 +20,10 @@ The lock file includes the lightweight local `ibex-sbfl-common` dependency used
 for generic SBFL artifact parsing. The LLM and batch projects do not depend on
 each other.
 
+Model calls live in `src/ibex_sbfl_llm/llm/`. Shared types, validation, and
+retry orchestration are in `models.py` and `llm_client.py`; `claude.py`,
+`gpt.py`, and `glm.py` isolate the Anthropic, OpenAI, and Z.AI SDKs.
+
 ## Rerank
 
 ```bash
@@ -33,17 +37,26 @@ uv run --project tools/ibex_sbfl_llm --frozen ibex-sbfl rerank \
   --candidate-count 50 \
   --top-k 20 \
   --source-mode auto \
-  --ranking-strategy weighted \
+  --llm-weight 0.75 \
   --output logs/sbfl/<case-logdir>/llm_rerank.json
 ```
+
+Models named `glm-*` use the official `zai-sdk` by default. Set `ZAI_API_KEY`
+and optionally `ZAI_BASE_URL`; `OPENAI_API_KEY` and `OPENAI_BASE_URL` remain
+compatibility fallbacks. Other models default to the OpenAI Responses API, and
+Claude can be selected with `--api-protocol anthropic`. The default temperature
+is `0` for every model.
 
 Important controls:
 
 - `--source-mode snippets|full|auto` selects the RTL context strategy;
 - `--candidate-count` limits SBFL candidates sent to the model;
 - `--top-k` controls the validated rerank result size;
-- `--ranking-strategy weighted|llm-only|rrf` combines SBFL and model scores;
+- `--llm-weight` controls the LLM contribution from 0 to 1; use `1.0` for
+  LLM-only ranking;
 - `--structured-output auto|strict|off` controls response-schema enforcement;
+- `--api-protocol auto|anthropic|zai|openai-responses|openai-chat-completions`
+  selects the request protocol;
 - `--include-reason` requests a concise reason for every score; by default the
   model returns only candidate IDs and scores;
 - `--dry-run --save-prompt` prepares inputs without calling the model.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .errors import SbflLlmError
 from .io_utils import read_text
-from .models import Candidate
+from .llm.models import Candidate
 
 
 @dataclass(frozen=True)

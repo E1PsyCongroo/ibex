@@ -8,7 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from .io_utils import read_text, sha256_text
-from .models import Candidate
+from .llm.models import Candidate
 from .snippets import SourceBundle, compress_line_ranges
 
 GENERIC_TEST_INFO = (

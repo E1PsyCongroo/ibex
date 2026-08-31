@@ -1,10 +1,20 @@
-"""Shared internal and structured-response models."""
+"""Shared models and provider interfaces for LLM requests."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
+
+ResolvedApiProtocol = Literal[
+    "anthropic",
+    "zai",
+    "openai-responses",
+    "openai-chat-completions",
+]
+StructuredMode = Literal["json_schema", "json_object", "prompt_only"]
 
 
 @dataclass(frozen=True)
@@ -50,6 +60,12 @@ class ReasonedAssessmentResponse(BaseModel):
 AssessmentResponseType = AssessmentResponse | ReasonedAssessmentResponse
 
 
+def assessment_response_model(
+    include_reason: bool,
+) -> type[AssessmentResponse] | type[ReasonedAssessmentResponse]:
+    return ReasonedAssessmentResponse if include_reason else AssessmentResponse
+
+
 @dataclass(frozen=True)
 class ApiResult:
     response: AssessmentResponseType
@@ -59,4 +75,25 @@ class ApiResult:
     structured_output: str
     attempts: int
     elapsed_seconds: float
-    api: str = "responses"
+    api: str = "openai-responses"
+
+
+@dataclass(frozen=True)
+class ProviderRequest:
+    model: str
+    system_prompt: str
+    input_items: Sequence[dict[str, str]]
+    temperature: float | None
+    max_output_tokens: int
+    reasoning_effort: str
+    include_reason: bool
+
+
+class ModelProvider(Protocol):
+    protocol: ResolvedApiProtocol
+
+    def structured_modes(self, structured_output: str) -> tuple[StructuredMode, ...]: ...
+
+    def create(self, request: ProviderRequest, mode: StructuredMode) -> Any: ...
+
+    def output_text(self, response: Any) -> str: ...

@@ -1,8 +1,8 @@
 import json
 from types import SimpleNamespace
 
-from ibex_sbfl_llm.llm_client import call_model
-from ibex_sbfl_llm.models import Candidate
+from ibex_sbfl_llm.llm.llm_client import call_model
+from ibex_sbfl_llm.llm.models import Candidate
 
 
 class UnsupportedSchemaError(Exception):
@@ -46,7 +46,7 @@ class FakeOpenAI:
 
 
 def test_structured_output_falls_back_to_json_object(monkeypatch):
-    monkeypatch.setattr("ibex_sbfl_llm.llm_client.OpenAI", FakeOpenAI)
+    monkeypatch.setattr("ibex_sbfl_llm.llm.gpt.OpenAI", FakeOpenAI)
     candidates = [Candidate("B001", 1, "1", "m", "s", 1, (10,), "Assign")]
     result = call_model(
         api_base="http://localhost:8000/v1/responses",
@@ -111,7 +111,7 @@ class ReasonOpenAI:
 
 
 def test_include_reason_uses_reasoned_schema(monkeypatch):
-    monkeypatch.setattr("ibex_sbfl_llm.llm_client.OpenAI", ReasonOpenAI)
+    monkeypatch.setattr("ibex_sbfl_llm.llm.gpt.OpenAI", ReasonOpenAI)
     candidates = [Candidate("B001", 1, "1", "m", "s", 1, (10,), "Assign")]
     result = call_model(
         api_base="http://localhost:8000/v1",
@@ -170,7 +170,7 @@ class FakeChatOpenAI:
 
 
 def test_chat_completions_protocol(monkeypatch):
-    monkeypatch.setattr("ibex_sbfl_llm.llm_client.OpenAI", FakeChatOpenAI)
+    monkeypatch.setattr("ibex_sbfl_llm.llm.gpt.OpenAI", FakeChatOpenAI)
     candidates = [Candidate("B001", 1, "1", "m", "s", 1, (10,), "Assign")]
     result = call_model(
         api_base="http://localhost:8000/v1",
@@ -184,10 +184,10 @@ def test_chat_completions_protocol(monkeypatch):
         retries=0,
         retry_delay=0,
         structured_output="auto",
-        api_protocol="chat-completions",
+        api_protocol="openai-chat-completions",
     )
 
-    assert result.api == "chat-completions"
+    assert result.api == "openai-chat-completions"
     assert result.structured_output == "json_schema"
     assert result.usage == {
         "input_tokens": 12,
@@ -202,6 +202,55 @@ def test_chat_completions_protocol(monkeypatch):
     ]
     assert calls[0]["response_format"]["type"] == "json_schema"
     assert calls[0]["reasoning_effort"] == "high"
+
+
+class FakeZai:
+    instance = None
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.chat = SimpleNamespace(completions=FakeChatCompletions())
+        FakeZai.instance = self
+
+
+def test_zai_protocol_uses_native_chat_completions(monkeypatch):
+    monkeypatch.setattr("ibex_sbfl_llm.llm.glm.ZaiClient", FakeZai)
+    candidates = [Candidate("B001", 1, "1", "m", "s", 1, (10,), "Assign")]
+    result = call_model(
+        api_base="https://api.z.ai/api/paas/v4/chat/completions",
+        api_key="zai-key",
+        model="glm-4.6",
+        system_prompt="system",
+        user_prompt="user JSON",
+        candidates=candidates,
+        timeout=5,
+        temperature=0,
+        retries=0,
+        retry_delay=0,
+        structured_output="auto",
+        api_protocol="zai",
+        max_output_tokens=4096,
+    )
+
+    assert result.api == "zai"
+    assert result.structured_output == "json_object"
+    assert FakeZai.instance.kwargs == {
+        "api_key": "zai-key",
+        "base_url": "https://api.z.ai/api/paas/v4",
+        "timeout": 5,
+        "max_retries": 0,
+    }
+    call = FakeZai.instance.chat.completions.calls[0]
+    assert call["model"] == "glm-4.6"
+    assert call["messages"] == [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "user JSON"},
+    ]
+    assert call["response_format"] == {"type": "json_object"}
+    assert call["thinking"] == {"type": "enabled"}
+    assert call["max_tokens"] == 4096
+    assert call["temperature"] == 0
+    assert "reasoning_effort" not in call
 
 
 class FakeAnthropicMessages:
@@ -238,7 +287,7 @@ class FakeAnthropic:
 
 
 def test_anthropic_messages_protocol_uses_anthropic_sdk(monkeypatch):
-    monkeypatch.setattr("ibex_sbfl_llm.llm_client.Anthropic", FakeAnthropic)
+    monkeypatch.setattr("ibex_sbfl_llm.llm.claude.Anthropic", FakeAnthropic)
     candidates = [Candidate("B001", 1, "1", "m", "s", 1, (10,), "Assign")]
     result = call_model(
         api_base="http://localhost:8000/v1/messages",

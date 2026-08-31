@@ -233,10 +233,15 @@ def with_default_model(arguments: Sequence[str]) -> list[str]:
 def with_model_api_compatibility(arguments: Sequence[str]) -> list[str]:
     result = list(arguments)
     model = option_value(result, "--model")
-    if model is None or not model.lower().rsplit("/", 1)[-1].startswith("claude-"):
+    if model is None or has_option(result, "--api-protocol"):
         return result
-    if not has_option(result, "--api-protocol"):
+    model_name = model.lower().rsplit("/", 1)[-1]
+    if model_name.startswith("claude-"):
         result.extend(["--api-protocol", "anthropic"])
+    elif model_name.startswith("glm-"):
+        result.extend(["--api-protocol", "zai"])
+    elif model_name.startswith("gpt-"):
+        result.extend(["--api-protocol", "openai-responses"])
     return result
 
 

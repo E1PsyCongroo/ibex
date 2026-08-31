@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from ibex_sbfl_llm.errors import SbflLlmError
-from ibex_sbfl_llm.models import Candidate
+from ibex_sbfl_llm.llm.models import Candidate
 from ibex_sbfl_llm.snippets import collect_sources, compress_line_ranges
 
 

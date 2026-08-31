@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ibex_sbfl_llm.models import Candidate
+from ibex_sbfl_llm.llm.models import Candidate
 from ibex_sbfl_llm.prompting import (
     build_repair_prompt,
     build_user_prompt,

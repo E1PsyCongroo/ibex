@@ -57,7 +57,7 @@ LLM_FIELDS = [
     "gen_time",
     "sbfl_time",
     "llm_score",
-    "normalized_sbfl_score",
+    "sbfl_score",
     "final_score",
     "ranking_strategy",
     "patch_state",
@@ -335,7 +335,7 @@ def process_llm_logdir(
                 "lines": ",".join(str(line) for line in matched.get("lines", [])),
                 "reason": " ".join(str(matched.get("reason", "")).split()),
                 "llm_score": str(matched.get("llm_score", "")),
-                "normalized_sbfl_score": str(matched.get("normalized_sbfl_score", "")),
+                "sbfl_score": str(matched.get("sbfl_score", "")),
                 "final_score": str(matched.get("final_score", "")),
             }
         )

@@ -9,7 +9,7 @@ from typing import Any
 from ibex_sbfl_common.artifacts import load_blocks, parse_block_suspiciousness, resolve_input_files
 
 from .errors import SbflLlmError
-from .models import Candidate
+from .llm.models import Candidate
 
 __all__ = [
     "build_candidates",

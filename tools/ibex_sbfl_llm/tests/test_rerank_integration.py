@@ -2,12 +2,24 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
-from ibex_sbfl_llm.models import (
+from ibex_sbfl_llm.llm.llm_client import resolve_api_protocol
+from ibex_sbfl_llm.llm.models import (
     ApiResult,
     AssessmentResponse,
     CandidateAssessment,
 )
 from ibex_sbfl_llm.rerank import run_rerank
+
+
+def test_auto_api_protocol_selects_zai_for_glm_models():
+    assert resolve_api_protocol("glm-4.6", "auto") == "zai"
+    assert resolve_api_protocol("zai/glm-4.6", "auto") == "zai"
+    assert resolve_api_protocol("claude-sonnet-4-6", "auto") == "anthropic"
+    assert resolve_api_protocol("gpt-5.5", "auto") == "openai-responses"
+    assert (
+        resolve_api_protocol("glm-4.6", "openai-chat-completions")
+        == "openai-chat-completions"
+    )
 
 
 def test_end_to_end_rerank_writes_schema_v3_with_patched_source(tmp_path: Path, monkeypatch):
@@ -68,7 +80,7 @@ def test_end_to_end_rerank_writes_schema_v3_with_patched_source(tmp_path: Path, 
         sbfl_result=result,
         model="test-model",
         api_base="http://localhost/v1",
-        api_protocol="responses",
+        api_protocol="openai-responses",
         api_key_env="",
         candidate_count=1,
         top_k=1,
@@ -79,7 +91,6 @@ def test_end_to_end_rerank_writes_schema_v3_with_patched_source(tmp_path: Path, 
         allow_unpatched_source=False,
         test_info="failure",
         test_info_file=None,
-        ranking_strategy="weighted",
         llm_weight=0.75,
         structured_output="auto",
         include_reason=False,
@@ -97,8 +108,9 @@ def test_end_to_end_rerank_writes_schema_v3_with_patched_source(tmp_path: Path, 
     value = json.loads(output.read_text())
     assert value["schema_version"] == 3
     assert value["inputs"]["patch_state"] == "applied"
-    assert value["request"]["api"] == "responses"
+    assert value["request"]["api"] == "openai-responses"
     assert value["config"]["include_reason"] is False
+    assert "ranking_strategy" not in value["config"]
     assert value["assessments"][0]["llm_score"] == 0.9
     assert value["rankings"][0]["reranked_rank"] == 1
     assert "reason" not in value["assessments"][0]
