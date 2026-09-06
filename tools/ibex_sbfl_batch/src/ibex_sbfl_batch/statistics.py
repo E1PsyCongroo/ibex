@@ -370,6 +370,7 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
     top1 = top5 = top10 = improved = unchanged = worsened = 0
     reciprocal = mar10 = 0.0
     timings: dict[str, list[float]] = {"llm": [], "gen": [], "sbfl": []}
+    token_counts: dict[str, list[int]] = {"prompt": [], "completion": [], "total": []}
     for row in ok_rows:
         rank = parse_rank(row.get("top-k", ""))
         sbfl_rank = parse_rank(row.get("sbfl_top-k", ""))
@@ -395,6 +396,14 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
         for field, key in time_fields:
             if row.get(field):
                 timings[key].append(parse_time(row[field]))
+        token_fields = (
+            ("prompt_tokens", "prompt"),
+            ("completion_tokens", "completion"),
+            ("total_tokens", "total"),
+        )
+        for field, key in token_fields:
+            if row.get(field):
+                token_counts[key].append(int(row[field]))
     count = len(ok_rows)
     return {
         "total": len(row_list),
@@ -412,6 +421,21 @@ def compute_llm_stats(rows: Iterable[Mapping[str, str]]) -> dict[str, Any]:
         "average_llm": sum(timings["llm"]) / len(timings["llm"]) if timings["llm"] else None,
         "average_gen": (sum(timings["gen"]) / len(timings["gen"]) if timings["gen"] else None),
         "average_sbfl": (sum(timings["sbfl"]) / len(timings["sbfl"]) if timings["sbfl"] else None),
+        "average_prompt_tokens": (
+            sum(token_counts["prompt"]) / len(token_counts["prompt"])
+            if token_counts["prompt"]
+            else None
+        ),
+        "average_completion_tokens": (
+            sum(token_counts["completion"]) / len(token_counts["completion"])
+            if token_counts["completion"]
+            else None
+        ),
+        "average_total_tokens": (
+            sum(token_counts["total"]) / len(token_counts["total"])
+            if token_counts["total"]
+            else None
+        ),
     }
 
 
@@ -446,3 +470,11 @@ def print_llm_stats(rows: Iterable[Mapping[str, str]]) -> None:
     for label, field in average_fields:
         value = stats[field]
         print(f"{label:<20}: {value:.2f} s" if value is not None else f"{label:<20}: n/a")
+    average_token_fields = (
+        ("Average prompt tokens", "average_prompt_tokens"),
+        ("Average completion tokens", "average_completion_tokens"),
+        ("Average total tokens", "average_total_tokens"),
+    )
+    for label, field in average_token_fields:
+        value = stats[field]
+        print(f"{label:<26}: {value:.2f}" if value is not None else f"{label:<26}: n/a")

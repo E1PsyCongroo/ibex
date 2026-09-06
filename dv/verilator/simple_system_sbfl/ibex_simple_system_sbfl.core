@@ -206,7 +206,7 @@ targets:
           - '--trace-max-array 1024'
           - '--coverage-line'
           - '--coverage-expr'
-          - '--coverage-toggle'
+          # - '--coverage-toggle'
           - '-CFLAGS "-std=c++17 -Wall -DVL_USER_STOP -DVM_TRACE_FMT_FST -DTOPLEVEL_NAME=ibex_simple_system -g `pkg-config --cflags riscv-riscv riscv-disasm riscv-fdt`"'
           - '-LDFLAGS "-pthread -lutil -lelf `pkg-config --libs riscv-riscv riscv-disasm riscv-fdt`"'
           - '-LDFLAGS "$$IBEX_HOME/target/release/libcpusbfl.so"'

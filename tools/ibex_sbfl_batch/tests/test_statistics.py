@@ -1,4 +1,9 @@
-from ibex_sbfl_batch.statistics import LLM_FIELDS, compute_llm_stats, compute_sbfl_stats
+from ibex_sbfl_batch.statistics import (
+    LLM_FIELDS,
+    compute_llm_stats,
+    compute_sbfl_stats,
+    print_llm_stats,
+)
 
 
 def test_sbfl_timing_counts_only_present_values() -> None:
@@ -42,6 +47,41 @@ def test_llm_stats_compare_rerank_with_sbfl() -> None:
     assert stats["top5"] == 1
     assert stats["improved"] == 1
     assert stats["mrr"] == 0.5
+
+
+def test_llm_stats_average_tokens_counts_only_present_ok_values(capsys) -> None:
+    rows = [
+        {
+            "status": "OK",
+            "prompt_tokens": "100",
+            "completion_tokens": "20",
+            "total_tokens": "120",
+        },
+        {
+            "status": "OK",
+            "prompt_tokens": "200",
+            "completion_tokens": "",
+            "total_tokens": "240",
+        },
+        {
+            "status": "LLM_ERROR",
+            "prompt_tokens": "900",
+            "completion_tokens": "900",
+            "total_tokens": "1800",
+        },
+    ]
+
+    stats = compute_llm_stats(rows)
+
+    assert stats["average_prompt_tokens"] == 150.0
+    assert stats["average_completion_tokens"] == 20.0
+    assert stats["average_total_tokens"] == 180.0
+
+    print_llm_stats(rows)
+    output = capsys.readouterr().out
+    assert "Average prompt tokens     : 150.00" in output
+    assert "Average completion tokens : 20.00" in output
+    assert "Average total tokens      : 180.00" in output
 
 
 def test_llm_summary_keeps_optional_reason_but_not_removed_fields() -> None:
